@@ -4,10 +4,10 @@ overview: New standalone repo CryoBookQ — 15-min L5 BTC option book snapshots 
 todos:
   - id: m0-spike
     content: "M0: Live venue spikes (Deribit book WS burst, Coincall WS auth/batch) + fixture capture"
-    status: pending
+    status: completed
   - id: m1-skeleton
     content: "M1: Repo skeleton, Protocol, schemas, config, unit tests green"
-    status: pending
+    status: completed
   - id: m2-deribit
     content: "M2: Deribit L5 burst collector + raw Parquet + live smoke"
     status: pending
@@ -28,8 +28,8 @@ isProject: false
 
 # CryoBookQ — Exchange orderbook quality comparer
 
-> **Repo status:** Bootstrap created (2026-08-26). Package stubs + this SPEC only.  
-> **Next:** open this repo in Cursor and implement **M0** (venue spikes). Say **CODE**.
+> **Repo status:** M0 + M1 complete (2026-08-26). Dual full-chain WS bursts at 100% coverage; Protocol/types/config/unit+live tests green.  
+> **Next:** implement **M2** (Deribit collector + raw Parquet). Say **CODE**.
 
 ## Target state (product)
 
@@ -396,10 +396,10 @@ Implement as groupby over `pair_scores` with documented session windows in `SCOR
 
 ## Risks (verify early in M0)
 
-1. Coincall options WS auth + max subscriptions
-2. Deribit ~950 book channels in one burst (may need 2 connections, same deadline)
-3. Size unit parity Coincall vs Deribit
-4. nginx merge conflicts with buy-rent `default_server`
+1. Coincall options WS auth + max subscriptions — **resolved:** signed URL required; batch ≤100; full chain 100% in M0
+2. Deribit ~950 book channels in one burst — **resolved:** single WS OK at 100% coverage; depth must be 1/10/20 (use 10→truncate to L5)
+3. Size unit parity Coincall vs Deribit — still open (M3)
+4. nginx merge conflicts with buy-rent `default_server` — still open (M5/M6)
 
 ---
 

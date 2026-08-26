@@ -1,0 +1,264 @@
+{
+  "meta": {
+    "index_hint": null,
+    "n_deribit": 956,
+    "n_coincall": 956,
+    "note": "Sample books for unit tests; not full chain."
+  },
+  "deribit": {
+    "atm": {
+      "venue": "deribit",
+      "venue_symbol": "BTC-27AUG26-79000-P",
+      "key": {
+        "underlying": "BTC",
+        "expiry_utc_ms": 1787817600000,
+        "strike": 79000.0,
+        "is_call": false
+      },
+      "ts_exchange_ms": 1787735036078,
+      "bid_px": [
+        0.008,
+        0.0075,
+        0.007,
+        0.0065,
+        0.006
+      ],
+      "bid_sz": [
+        31.0,
+        0.1,
+        0.4,
+        10.0,
+        56.0
+      ],
+      "ask_px": [
+        0.009,
+        0.0095,
+        0.01,
+        0.0105,
+        0.011
+      ],
+      "ask_sz": [
+        16.1,
+        28.1,
+        13.1,
+        14.5,
+        70.1
+      ],
+      "index_px": null,
+      "mark_px": null,
+      "delta": null
+    },
+    "wing": {
+      "venue": "deribit",
+      "venue_symbol": "BTC-25SEP26-320000-P",
+      "key": {
+        "underlying": "BTC",
+        "expiry_utc_ms": 1790323200000,
+        "strike": 320000.0,
+        "is_call": false
+      },
+      "ts_exchange_ms": 1787735023076,
+      "bid_px": [
+        3.034,
+        3.0335,
+        3.033,
+        3.0325,
+        3.032
+      ],
+      "bid_sz": [
+        30.0,
+        2.0,
+        2.0,
+        2.0,
+        2.0
+      ],
+      "ask_px": [
+        3.065,
+        3.0655,
+        3.066,
+        3.0665,
+        3.067
+      ],
+      "ask_sz": [
+        2.0,
+        30.0,
+        2.0,
+        2.0,
+        2.0
+      ],
+      "index_px": null,
+      "mark_px": null,
+      "delta": null
+    },
+    "empty": {
+      "venue": "deribit",
+      "venue_symbol": "BTC-28AUG26-62000-P",
+      "key": {
+        "underlying": "BTC",
+        "expiry_utc_ms": 1787904000000,
+        "strike": 62000.0,
+        "is_call": false
+      },
+      "ts_exchange_ms": 1787735019961,
+      "bid_px": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "bid_sz": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "ask_px": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "ask_sz": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "index_px": null,
+      "mark_px": null,
+      "delta": null
+    }
+  },
+  "coincall": {
+    "atm": {
+      "venue": "coincall",
+      "venue_symbol": "BTCUSD-27AUG26-79000-P",
+      "key": {
+        "underlying": "BTC",
+        "expiry_utc_ms": 1787817600000,
+        "strike": 79000.0,
+        "is_call": false
+      },
+      "ts_exchange_ms": 1787735037821,
+      "bid_px": [
+        625.0,
+        620.0,
+        610.0,
+        605.0,
+        0.0
+      ],
+      "bid_sz": [
+        3.0,
+        0.1,
+        4.2,
+        14.73,
+        0.0
+      ],
+      "ask_px": [
+        685.0,
+        700.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "ask_sz": [
+        17.83,
+        4.2,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "index_px": null,
+      "mark_px": null,
+      "delta": null
+    },
+    "wing": {
+      "venue": "coincall",
+      "venue_symbol": "BTCUSD-25DEC26-200000-C",
+      "key": {
+        "underlying": "BTC",
+        "expiry_utc_ms": 1798185600000,
+        "strike": 200000.0,
+        "is_call": true
+      },
+      "ts_exchange_ms": 1787734900826,
+      "bid_px": [
+        20.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "bid_sz": [
+        14.79,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "ask_px": [
+        130.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "ask_sz": [
+        14.79,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "index_px": null,
+      "mark_px": null,
+      "delta": null
+    },
+    "empty": {
+      "venue": "coincall",
+      "venue_symbol": "BTCUSD-28AUG26-54000-C",
+      "key": {
+        "underlying": "BTC",
+        "expiry_utc_ms": 1787904000000,
+        "strike": 54000.0,
+        "is_call": true
+      },
+      "ts_exchange_ms": 1787735021485,
+      "bid_px": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "bid_sz": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "ask_px": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "ask_sz": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "index_px": null,
+      "mark_px": null,
+      "delta": null
+    }
+  }
+}
