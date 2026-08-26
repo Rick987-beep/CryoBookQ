@@ -3,7 +3,7 @@
 See docs/SPEC.md for design and milestones.
 """
 
-__version__ = "0.0.1"
+__version__ = "0.1.0"
 
 from cryobookq.types import BookL5, Instrument, OptionKey
 

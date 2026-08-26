@@ -1,0 +1,21 @@
+[Unit]
+Description=CryoBookQ orderbook quality comparer
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/apps/cryobookq
+EnvironmentFile=-/apps/cryobookq/.env
+ExecStart=/apps/cryobookq/.venv/bin/python -m cryobookq.daemon --venues deribit,coincall
+Restart=on-failure
+RestartSec=5
+MemoryMax=2G
+LimitNOFILE=65536
+ReadWritePaths=/apps/cryobookq/data /apps/cryobookq/logs
+
+# Optional: run hub in a second unit or reverse-proxy a separate process.
+# ExecStart=/apps/cryobookq/.venv/bin/python -m cryobookq.hub.app
+
+[Install]
+WantedBy=multi-user.target

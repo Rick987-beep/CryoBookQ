@@ -10,16 +10,16 @@ todos:
     status: completed
   - id: m2-deribit
     content: "M2: Deribit L5 burst collector + raw Parquet + live smoke"
-    status: pending
+    status: completed
   - id: m3-coincall
     content: "M3: Coincall L5 burst + normalize + matcher + live dual-venue smoke"
-    status: pending
+    status: completed
   - id: m4-scoring
     content: "M4: Pair scores, buckets, analytics lib + fixture regression tests"
-    status: pending
+    status: completed
   - id: m5-daemon-hub
     content: "M5: systemd daemon, health, hub UI, deploy script"
-    status: pending
+    status: completed
   - id: m6-prod
     content: "M6: Deploy to apps.aureas.xyz (explicit approval), soak, maintenance docs"
     status: pending
@@ -28,8 +28,8 @@ isProject: false
 
 # CryoBookQ — Exchange orderbook quality comparer
 
-> **Repo status:** M0 + M1 complete (2026-08-26). Dual full-chain WS bursts at 100% coverage; Protocol/types/config/unit+live tests green.  
-> **Next:** implement **M2** (Deribit collector + raw Parquet). Say **CODE**.
+> **Repo status:** M0–M5 implemented locally (2026-08-26). Dual snapshot → match → score → Parquet + hub + deploy artifacts.  
+> **Next:** **M6** apps deploy — **explicit approval required**. Do not run `deploy.sh` against prod without it.
 
 ## Target state (product)
 

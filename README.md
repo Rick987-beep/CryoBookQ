@@ -8,53 +8,53 @@ on **apps.aureas.xyz** (not the trading VPS).
 
 | Doc | Purpose |
 |-----|---------|
-| **[docs/SPEC.md](docs/SPEC.md)** | **Canonical plan** — target state, deploy/ops, milestones M0–M6, tests |
-| [AGENTS.md](AGENTS.md) | Rules for AI agents (CODE gate, no deploy without approval) |
+| **[docs/SPEC.md](docs/SPEC.md)** | Canonical plan |
+| [docs/SCORING.md](docs/SCORING.md) | Metrics, composite weights, buckets |
+| [docs/OPS.md](docs/OPS.md) | Ops runbook |
+| [AGENTS.md](AGENTS.md) | Agent rules (CODE gate; no deploy without approval) |
 
-**Next implementation step:** milestone **M2** (Deribit collector + raw Parquet). Say **CODE**.
+**Next:** M6 production deploy on apps — **only with explicit approval**.
 
 ## Status
 
-**M0 + M1 done** (2026-08-26):
-
-- Venue WS bursts feasible: dual full-chain ~956 instruments, **100% coverage** each side in ~18s
-- Coincall options WS **requires signed URL** (creds in `.env`)
-- Deribit interval books accept depth **1/10/20** only — we subscribe **10** and store top **5**
-- Package skeleton: `Venue` Protocol, `OptionKey`/`BookL5`, symbol converters, config
-
-## Layout
-
-```
-cryobookq/     # Python package
-docs/SPEC.md   # full design + implementation plan
-tests/         # unit / fixtures / live (opt-in)
-tools/         # spike scripts (M0)
-deploy/        # systemd + deploy.sh (M5+)
-```
+**M0–M5 implemented** (local). M6 deploy artifacts ready; apps deploy gated.
 
 ## Local setup
 
 ```bash
 python3.12 -m venv .venv
-.venv/bin/pip install -e ".[dev]"
+.venv/bin/pip install -e ".[dev,hub]"
 cp .env.example .env   # fill COINCALL_* from CryoTrader PROD keys
 .venv/bin/python -m pytest tests/unit -v
 ```
 
-Live / spikes:
+### One-shot dual snapshot + scores
 
 ```bash
-.venv/bin/python tools/spike_dual.py --duration 18
-.venv/bin/python tools/capture_fixture.py --from-tmp
-.venv/bin/python -m pytest tests/live -m live -v
+.venv/bin/python -m cryobookq.daemon --once --venues deribit,coincall --duration 18
+# or full report:
+.venv/bin/python tools/live_score.py --duration 18
 ```
 
-## Credentials
+### Hub (local)
 
-Secrets live in `.env` (gitignored). See `.env.example`. Do not commit keys.
-Coincall read-only keys are required for options WebSocket (confirmed in M0).
+```bash
+.venv/bin/python -m cryobookq.hub.app   # http://127.0.0.1:8088/
+```
+
+### Analytics snippet
+
+```python
+from cryobookq.analytics import load_scores, who_wins
+df = load_scores()
+print(who_wins(df, session="US", dte_bucket="0-2").attrs["win_rate"])
+```
 
 ## Deploy
 
-Target: `/apps/cryobookq` on `apps.aureas.xyz`. **Never deploy without explicit approval.**
-See `docs/SPEC.md` § Deployment & maintenance.
+```bash
+./deploy/deploy.sh --dry-run
+# production requires explicit approval + BOOKQ_ALLOW_DEPLOY=1
+```
+
+See `docs/OPS.md`.
