@@ -28,6 +28,9 @@ isProject: false
 
 # CryoBookQ — Exchange orderbook quality comparer
 
+> **Repo status:** Bootstrap created (2026-08-26). Package stubs + this SPEC only.  
+> **Next:** open this repo in Cursor and implement **M0** (venue spikes). Say **CODE**.
+
 ## Target state (product)
 
 Continuously compare **Deribit vs Coincall** BTC option orderbook quality across the **full chain** (all shared expiries), not landmark strikes.
