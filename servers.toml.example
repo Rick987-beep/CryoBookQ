@@ -1,0 +1,8 @@
+# Copy to servers.toml (gitignored). Used by deploy/deploy.sh (M5+).
+
+[apps]
+name      = "Apps / Bulk Download"
+ip        = "91.107.208.208"
+user      = "root"
+base_path = "/apps"
+# CryoBookQ install path: {base_path}/cryobookq
