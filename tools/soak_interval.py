@@ -15,6 +15,7 @@ import logging
 import shutil
 import sys
 import time
+from dataclasses import replace
 from pathlib import Path
 
 
@@ -23,9 +24,10 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from cryobookq.analytics import summarize_snapshot, who_wins
+from cryobookq.capture.clock import CLOCK
 from cryobookq.capture.scheduler import IntervalSlotTracker
 from cryobookq.capture.snapshot import run_snapshot
-from cryobookq.config import Settings, get_settings
+from cryobookq.config import get_settings
 from cryobookq.daemon.health import HEALTH, start_health_server
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -50,23 +52,16 @@ async def main() -> int:
         shutil.rmtree(args.data_dir)
     args.data_dir.mkdir(parents=True)
 
-    settings = Settings(
-        underlying=base.underlying,
-        depth=base.depth,
-        snapshot_interval_min=base.snapshot_interval_min,
-        data_dir=args.data_dir,
-        hub_port=base.hub_port,
-        health_port=base.health_port,
-        coincall_api_key=base.coincall_api_key,
-        coincall_api_secret=base.coincall_api_secret,
-        coincall_env=base.coincall_env,
-        coverage_floor_deribit=base.coverage_floor_deribit,
-        coverage_floor_coincall=base.coverage_floor_coincall,
-        disk_free_warn_mb=base.disk_free_warn_mb,
-        disk_free_abort_mb=base.disk_free_abort_mb,
-    )
+    settings = replace(base, data_dir=args.data_dir)
     HEALTH.data_dir = str(settings.data_dir)
     HEALTH.disk_free_warn_mb = settings.disk_free_warn_mb
+
+    try:
+        await asyncio.to_thread(CLOCK.sync)
+        HEALTH.clock = CLOCK.to_dict()
+        logger.info("Clock synced offset=%+.3fs", CLOCK.offset_s)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Clock sync skipped: %s", exc)
 
     import socket
 

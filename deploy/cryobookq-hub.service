@@ -1,0 +1,18 @@
+[Unit]
+Description=CryoBookQ hub (Flask UI + /health via hub routes)
+After=network-online.target cryobookq.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/apps/cryobookq
+EnvironmentFile=-/apps/cryobookq/.env
+ExecStart=/apps/cryobookq/.venv/bin/python -m cryobookq.hub.app
+Restart=on-failure
+RestartSec=5
+MemoryMax=512M
+# Hub binds BOOKQ_HUB_PORT (default 8088). Daemon health remains on 8091.
+ReadWritePaths=/apps/cryobookq/data /apps/cryobookq/logs
+
+[Install]
+WantedBy=multi-user.target

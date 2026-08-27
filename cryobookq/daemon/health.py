@@ -12,6 +12,7 @@ import logging
 import threading
 import time
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any
 
@@ -34,10 +35,13 @@ class HealthState:
     last_stats: dict[str, Any] = field(default_factory=dict)
     data_dir: str | None = None
     disk_free_warn_mb: int = 5000
+    clock: dict[str, Any] = field(default_factory=dict)
+    _day_utc: str | None = None
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
     def record_success(self, ts_ms: int, stats: dict[str, Any], *, wrote: bool) -> None:
         with self._lock:
+            self._maybe_roll_day_locked()
             self.last_ts_ms = ts_ms
             self.last_ok = True
             self.last_incomplete = False
@@ -49,6 +53,7 @@ class HealthState:
 
     def record_incomplete(self, ts_ms: int, stats: dict[str, Any], *, wrote: bool, reason: str) -> None:
         with self._lock:
+            self._maybe_roll_day_locked()
             self.last_ts_ms = ts_ms
             self.last_ok = False
             self.last_incomplete = True
@@ -62,21 +67,46 @@ class HealthState:
 
     def record_failure(self, error: str) -> None:
         with self._lock:
+            self._maybe_roll_day_locked()
             self.last_ok = False
             self.last_incomplete = False
             self.last_error = error
 
     def record_gap(self) -> None:
         with self._lock:
+            self._maybe_roll_day_locked()
             self.gaps_today += 1
 
+    def _maybe_roll_day_locked(self) -> None:
+        """Reset today counters at UTC midnight (caller holds ``_lock``)."""
+        today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
+        if self._day_utc is None:
+            self._day_utc = today
+            return
+        if today != self._day_utc:
+            logger.info(
+                "UTC day roll %s → %s; resetting today counters "
+                "(was snapshots=%d gaps=%d incomplete=%d writes=%d)",
+                self._day_utc,
+                today,
+                self.snapshots_today,
+                self.gaps_today,
+                self.incomplete_today,
+                self.writes_today,
+            )
+            self._day_utc = today
+            self.gaps_today = 0
+            self.incomplete_today = 0
+            self.snapshots_today = 0
+            self.writes_today = 0
+
     def reset_day_counters_if_needed(self) -> None:
-        """Best-effort UTC day rollover for today counters."""
-        # Callers may invoke periodically; we key off local date string in stats.
-        pass
+        with self._lock:
+            self._maybe_roll_day_locked()
 
     def as_dict(self) -> dict[str, Any]:
         with self._lock:
+            self._maybe_roll_day_locked()
             free = disk_free_mb(self.data_dir) if self.data_dir else -1
             status = "ok"
             if not self.last_ok:
@@ -94,10 +124,12 @@ class HealthState:
                 "incomplete_today": self.incomplete_today,
                 "snapshots_today": self.snapshots_today,
                 "writes_today": self.writes_today,
+                "day_utc": self._day_utc,
                 "last_stats": dict(self.last_stats),
                 "uptime_s": round(time.time() - self.started_at, 1),
                 "data_dir": self.data_dir,
                 "disk_free_mb": free,
+                "clock": dict(self.clock),
             }
 
 

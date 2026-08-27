@@ -15,8 +15,7 @@ LimitNOFILE=65536
 # Health JSON: curl 127.0.0.1:8091/health (BOOKQ_HEALTH_PORT)
 ReadWritePaths=/apps/cryobookq/data /apps/cryobookq/logs
 
-# Optional: run hub in a second unit or reverse-proxy a separate process.
-# ExecStart=/apps/cryobookq/.venv/bin/python -m cryobookq.hub.app
+# Hub UI is a separate unit: deploy/cryobookq-hub.service (port 8088).
 
 [Install]
 WantedBy=multi-user.target

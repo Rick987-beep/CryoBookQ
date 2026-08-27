@@ -36,6 +36,9 @@ class Settings:
     coverage_floor_coincall: float = 0.80
     disk_free_warn_mb: int = 5000
     disk_free_abort_mb: int = 500
+    # P1
+    instrument_cache_ttl_s: float = 1800.0  # 30 minutes
+    clock_resync_every_s: float = 900.0  # re-sync Deribit clock at least this often
 
     @property
     def has_coincall_creds(self) -> bool:
@@ -62,4 +65,6 @@ def get_settings(*, load: bool = True) -> Settings:
         coverage_floor_coincall=float(os.getenv("BOOKQ_COVERAGE_FLOOR_COINCALL", "0.80")),
         disk_free_warn_mb=int(os.getenv("BOOKQ_DISK_FREE_WARN_MB", "5000")),
         disk_free_abort_mb=int(os.getenv("BOOKQ_DISK_FREE_ABORT_MB", "500")),
+        instrument_cache_ttl_s=float(os.getenv("BOOKQ_INSTRUMENT_CACHE_TTL_S", "1800")),
+        clock_resync_every_s=float(os.getenv("BOOKQ_CLOCK_RESYNC_EVERY_S", "900")),
     )

@@ -1,51 +1,69 @@
-"""Composite weights and bucket definitions for pair scoring.
+# CryoBookQ scoring — landmark scorecard
 
-## Per-venue metrics (normalized USD books)
+Product scorecard for ranking option venues (Deribit, Coincall, …).  
+Legacy equal-weight `winner_*` columns remain in `pair_scores` for research; **the report card is this scorecard.**
+
+## Subjects
+
+| Subject | Definition |
+|---------|------------|
+| **3×3 grid** | Tenors × \|Δ\| targets (below) |
+| **Wings** | Same tenors at \|Δ\| ≈ **0.025** |
+| **Presence** | Two-sided rate among **matched** options with \|Δ\| ≥ 0.05 |
+
+Only **matched** contracts enter landmark selection.
+
+### Tenors (nearest listed expiry per target, then average)
+
+| Label | Targets (DTE) | Max gap to listed |
+|-------|---------------|-------------------|
+| short | 1, 2 | 1.5d |
+| mid | 7, 14, 21 | 4d |
+| far | 60, 90, 120 | 15d |
+
+### Delta targets
+
+| Label | \|Δ\| |
+|-------|------|
+| 50d | 0.50 |
+| 25d | 0.25 |
+| 7p5d | 0.075 |
+| 2p5d (wings) | 0.025 |
+
+Per (expiry, \|Δ\|): pick **nearest call** and **nearest put** (max \|Δ\| gap 0.10), score each, **average**.
+
+## Per-contract metrics (USD books)
 
 | Metric | Definition |
 |--------|------------|
-| `two_sided` | Best bid and best ask both > 0 |
-| `spread_usd` | ask1 − bid1 |
-| `spread_bps` | spread / mid × 10_000 |
-| `mid_usd` | (bid1 + ask1) / 2 |
-| `depth_btc_L5` | Sum of bid+ask sizes across ≤5 levels |
-| `cost_buy_1btc` | VWAP to buy 1 BTC walking asks (null if insufficient size) |
-| `cost_sell_1btc` | VWAP to sell 1 BTC walking bids |
+| `spread_pct` | \((ask1-bid1)/mid × 100\) — requires two-sided |
+| `$10k lift` | Walk asks until **$10 000 premium** notional; report VWAP and \((VWAP-mid)/mid × 100\) |
+| `depth_usd` | Σ (px × sz) over L5 bids+asks |
 
-## Winners
+One-sided or missing landmark → metrics null, component score **0**.
 
-For each matched pair, lower spread / cost wins; higher depth wins.
-`tie` when equal or both null.
+## 0–10 scores (absolute refs — multi-venue safe)
 
-## Composite
+Lower-better (spread / lift %): `10 × clamp(1 − value/ref, 0, 1)`  
+Higher-better (depth $): `10 × clamp(value/ref, 0, 1)`
 
-Within each pair, each component is min-max normalized to [0, 1] (1 = better),
-then weighted:
+| Δ label | spread ref % | $10k eff ref % | depth ref $ |
+|---------|--------------|----------------|-------------|
+| 50d | 8 | 4 | 80 000 |
+| 25d | 15 | 8 | 40 000 |
+| 7p5d | 40 | 20 | 15 000 |
+| 2p5d | 80 | 40 | 5 000 |
 
-| Component | Weight |
-|-----------|--------|
-| spread_usd (lower better) | 0.35 |
-| cost_buy_1btc (lower better) | 0.25 |
-| cost_sell_1btc (lower better) | 0.25 |
-| depth_btc_L5 (higher better) | 0.15 |
+Cell score = mean(spread, size, depth) scores.  
+Grid subject = mean of 9 cells. Wings = mean of 3 wing cells.  
+Presence = `10 × two_sided_rate`.
 
-Missing values score 0 on that component (opponent gets 1 if present).
-`winner_composite` is the venue with higher composite (or `tie`).
+**Overall** = `0.60×grid + 0.20×wings + 0.20×presence`.
 
-## Sessions (UTC)
+## Deltas
 
-| Session | Hours |
-|---------|-------|
-| Asia | 00:00–08:00 |
-| EU | 08:00–14:00 |
-| US | 14:00–21:00 |
-| Off | 21:00–24:00 |
+WS books lack greeks. Snapshot enrichment uses Deribit `get_book_summary_by_currency` + forward BS delta from mark IV (attached to both venues’ matched rows by `OptionKey`).
 
-## DTE buckets
+## Legacy pair metrics
 
-`0-2`, `3-7`, `8-30`, `31-90`, `90+` (calendar days from snapshot to expiry 08:00 UTC).
-
-## |delta| buckets
-
-`0-0.05`, `0.05-0.15`, `0.15-0.30`, `0.30-0.50`, `0.50+` (when delta enrichment present).
-"""
+`two_sided`, USD spreads, `cost_buy_1btc` (1 BTC **option** notional walk), win flags — still written to Parquet; not the product rank index.

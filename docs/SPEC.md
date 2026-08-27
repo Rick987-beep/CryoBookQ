@@ -28,8 +28,8 @@ isProject: false
 
 # CryoBookQ — Exchange orderbook quality comparer
 
-> **Repo status:** M0–M5 + **P0 hardening** (boundary commit, quality gate, part-file parquet, health HTTP, disk abort).  
-> **Next:** P1 (Telegram, clock sync, hub unit) then **M6** apps deploy with explicit approval.
+> **Repo status:** M0–M5 + P0 + P1 + **landmark scorecard** (3×3 DTE×Δ, $10k lift, 0–10 multi-venue index).  
+> **Next:** Telegram (optional) then **M6** apps deploy with explicit approval.
 
 ## Target state (product)
 

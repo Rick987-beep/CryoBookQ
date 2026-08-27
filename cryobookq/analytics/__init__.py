@@ -1,4 +1,4 @@
-"""Analytics query API over pair_scores Parquet."""
+"""Analytics query API over pair_scores Parquet + landmark scorecard."""
 
 from __future__ import annotations
 
@@ -6,8 +6,22 @@ from pathlib import Path
 
 import pandas as pd
 
+from cryobookq.analytics.scorecard import (
+    ScorecardResult,
+    build_scorecard,
+    format_scorecard,
+)
 from cryobookq.config import get_settings
 from cryobookq.pipeline.write import ParquetStore
+
+__all__ = [
+    "ScorecardResult",
+    "build_scorecard",
+    "format_scorecard",
+    "load_scores",
+    "summarize_snapshot",
+    "who_wins",
+]
 
 
 def load_scores(

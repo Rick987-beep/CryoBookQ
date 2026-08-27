@@ -2,10 +2,12 @@
 
 P0 loop semantics (tickrecorder-inspired):
   1. Compute next UTC boundary strictly after last *committed* slot.
-  2. Sleep until lead-open.
+  2. Sleep until lead-open (using Deribit-aligned clock when available).
   3. **Commit the boundary before attempting capture** — never re-open it.
   4. Run snapshot (venues isolated; quality gate; part-file parquet).
   5. Update health; on failure/incomplete count a gap and wait for the *next* slot.
+
+P1: Deribit clock sync, instrument cache (inside snapshot), UTC day counter roll.
 """
 
 from __future__ import annotations
@@ -16,11 +18,13 @@ import json
 import logging
 import signal
 import sys
+import time
 from datetime import UTC, datetime
 
 import pandas as pd
 
 from cryobookq.analytics import summarize_snapshot
+from cryobookq.capture.clock import CLOCK, ExchangeClock
 from cryobookq.capture.disk import DiskFullError
 from cryobookq.capture.scheduler import BoundaryTracker
 from cryobookq.capture.snapshot import run_snapshot
@@ -52,10 +56,23 @@ def _record_result(result) -> None:  # SnapshotResult
         HEALTH.record_gap()
 
 
+async def _ensure_clock(clock: ExchangeClock, *, resync_every_s: float, force: bool = False) -> None:
+    """Sync Deribit clock in a worker thread when stale or forced."""
+    age = None if clock.last_sync_mono is None else time.monotonic() - clock.last_sync_mono
+    if force or age is None or age >= resync_every_s:
+        try:
+            await asyncio.to_thread(clock.sync, quiet=not force and age is not None)
+        except Exception:  # noqa: BLE001
+            # Keep previous offset; wall clock still usable.
+            pass
+    HEALTH.clock = clock.to_dict()
+
+
 async def run_once(venues: list[str], duration_s: float, print_summary: bool = True) -> int:
     settings = get_settings()
     HEALTH.data_dir = str(settings.data_dir)
     HEALTH.disk_free_warn_mb = settings.disk_free_warn_mb
+    await _ensure_clock(CLOCK, resync_every_s=settings.clock_resync_every_s, force=True)
     logger.info("Snapshot --once venues=%s duration=%.1fs data_dir=%s", venues, duration_s, settings.data_dir)
     try:
         result = await run_snapshot(venues, settings=settings, duration_s=duration_s, write=True)
@@ -79,6 +96,7 @@ async def run_once(venues: list[str], duration_s: float, print_summary: bool = T
         "wrote": result.wrote,
         "raw_path": result.raw_path,
         "scores_path": result.scores_path,
+        "clock": CLOCK.to_dict(),
     }
     if print_summary:
         print(json.dumps(payload, indent=2, default=str))
@@ -90,6 +108,8 @@ async def run_loop(venues: list[str], duration_s: float, lead_s: float = 12.0) -
     HEALTH.data_dir = str(settings.data_dir)
     HEALTH.disk_free_warn_mb = settings.disk_free_warn_mb
     start_health_server(HEALTH, port=settings.health_port)
+
+    await _ensure_clock(CLOCK, resync_every_s=settings.clock_resync_every_s, force=True)
 
     tracker = BoundaryTracker(interval_min=settings.snapshot_interval_min)
     stop = asyncio.Event()
@@ -105,22 +125,27 @@ async def run_loop(venues: list[str], duration_s: float, lead_s: float = 12.0) -
             signal.signal(sig, lambda *_: stop.set())
 
     logger.info(
-        "Daemon loop interval=%dmin venues=%s health=:%d",
+        "Daemon loop interval=%dmin venues=%s health=:%d clock_offset=%+.3fs",
         settings.snapshot_interval_min,
         venues,
         settings.health_port,
+        CLOCK.offset_s,
     )
 
     while not stop.is_set():
-        now = datetime.now(tz=UTC)
+        HEALTH.reset_day_counters_if_needed()
+        await _ensure_clock(CLOCK, resync_every_s=settings.clock_resync_every_s)
+
+        now = CLOCK.now()
         open_at, boundary = tracker.next_slot(now, lead_s=lead_s)
-        wait = (open_at - datetime.now(tz=UTC)).total_seconds()
+        wait = (open_at - CLOCK.now()).total_seconds()
         if wait > 0:
             logger.info(
-                "Sleeping %.1fs until lead-open %s (boundary %s)",
+                "Sleeping %.1fs until lead-open %s (boundary %s, offset %+.3fs)",
                 wait,
                 open_at.isoformat(),
                 boundary.isoformat(),
+                CLOCK.offset_s,
             )
             try:
                 await asyncio.wait_for(stop.wait(), timeout=wait)
@@ -128,12 +153,11 @@ async def run_loop(venues: list[str], duration_s: float, lead_s: float = 12.0) -
             except TimeoutError:
                 pass
 
-        # Commit *before* the attempt — slot is spent even if capture fails.
         tracker.commit(boundary)
         logger.info("Committed boundary %s — starting capture", boundary.isoformat())
 
         try:
-            rem = (boundary - datetime.now(tz=UTC)).total_seconds() + 2.0
+            rem = (boundary - CLOCK.now()).total_seconds() + 2.0
             dur = max(duration_s, rem)
             result = await run_snapshot(venues, settings=settings, duration_s=dur, write=True)
             _record_result(result)
@@ -154,7 +178,6 @@ async def run_loop(venues: list[str], duration_s: float, lead_s: float = 12.0) -
             HEALTH.record_gap()
             logger.exception("Snapshot failed; slot already committed — next boundary only")
 
-        # Small yield so we never spin if clock/boundary math is weird.
         await asyncio.sleep(0.5)
 
 

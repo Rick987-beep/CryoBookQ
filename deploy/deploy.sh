@@ -59,13 +59,17 @@ case "$MODE" in
     echo "On server after approval:"
     echo "  mkdir -p $REMOTE_PATH/{data,logs}"
     echo "  python3.12 -m venv $REMOTE_PATH/.venv && $REMOTE_PATH/.venv/bin/pip install -e '.[hub]'"
-    echo "  install deploy/cryobookq.service; merge deploy/nginx-bookq.conf; create .env mode 600"
+    echo "  install deploy/cryobookq.service and deploy/cryobookq-hub.service"
+    echo "  merge deploy/nginx-bookq.conf; create .env mode 600"
+    echo "  systemctl enable --now cryobookq cryobookq-hub"
     ;;
   status)
-    ssh ${SSH_KEY:+-i "$SSH_KEY"} -o BatchMode=yes "$REMOTE_SSH" "systemctl is-active cryobookq"
+    ssh ${SSH_KEY:+-i "$SSH_KEY"} -o BatchMode=yes "$REMOTE_SSH" \
+      "systemctl is-active cryobookq; systemctl is-active cryobookq-hub || true"
     ;;
   logs)
-    ssh ${SSH_KEY:+-i "$SSH_KEY"} -o BatchMode=yes "$REMOTE_SSH" "journalctl -u cryobookq -n 100 --no-pager"
+    ssh ${SSH_KEY:+-i "$SSH_KEY"} -o BatchMode=yes "$REMOTE_SSH" \
+      "journalctl -u cryobookq -u cryobookq-hub -n 100 --no-pager"
     ;;
   deploy)
     echo "rsync excludes: .env data/ .venv .git tmp/"
@@ -89,6 +93,9 @@ case "$MODE" in
       -e "$RSYNC_SSH" \
       ./ "${REMOTE_SSH}:${REMOTE_PATH}/"
     ssh ${SSH_KEY:+-i "$SSH_KEY"} -o BatchMode=yes "$REMOTE_SSH" \
-      "cd $REMOTE_PATH && .venv/bin/pip install -e '.[hub]' -q && systemctl restart cryobookq && systemctl is-active cryobookq"
+      "cd $REMOTE_PATH && .venv/bin/pip install -e '.[hub]' -q \
+       && systemctl restart cryobookq \
+       && (systemctl is-active cryobookq-hub >/dev/null 2>&1 && systemctl restart cryobookq-hub || true) \
+       && systemctl is-active cryobookq"
     ;;
 esac
