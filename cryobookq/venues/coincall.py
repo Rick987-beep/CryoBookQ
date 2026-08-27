@@ -164,13 +164,15 @@ class CoincallVenue:
                 peak_rss_mb=peak_rss_mb(),
             )
 
-        if deadline is None:
-            dur = 15.0 if duration_s is None else duration_s
-            deadline_ts = time.time() + dur
-        else:
+        # Absolute deadline (daemon boundary) is hard. Duration-only mode starts
+        # the receive clock *after* connect+subscribe so setup cost does not
+        # steal from the collection window.
+        hard_deadline_ts: float | None = None
+        if deadline is not None:
             if deadline.tzinfo is None:
                 deadline = deadline.replace(tzinfo=UTC)
-            deadline_ts = deadline.timestamp()
+            hard_deadline_ts = deadline.timestamp()
+        collect_s = 15.0 if duration_s is None else float(duration_s)
 
         notes: list[str] = []
         errors: list[str] = []
@@ -216,6 +218,13 @@ class CoincallVenue:
                         "payload": {"symbol": batch},
                     }
                     await ws.send(json.dumps(msg))
+
+                deadline_ts = (
+                    hard_deadline_ts
+                    if hard_deadline_ts is not None
+                    else time.time() + collect_s
+                )
+                notes.append(f"collect_until_unix={deadline_ts:.3f}")
 
                 last_hb = time.time()
                 while time.time() < deadline_ts:

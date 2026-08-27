@@ -5,12 +5,24 @@ Never confuse with the trading VPS. **Never deploy or wipe `data/` without expli
 
 ## Health
 
+Daemon embeds ``GET /health`` on ``BOOKQ_HEALTH_PORT`` (default **8091**):
+
 ```bash
-curl -s http://127.0.0.1:8088/health   # on server (hub)
-journalctl -u cryobookq -f
-./deploy/deploy.sh --status
-./deploy/deploy.sh --logs
+curl -s http://127.0.0.1:8091/health | python3 -m json.tool
 ```
+
+Fields: `status`, `last_ts_ms`, `last_ok`, `last_incomplete`, `gaps_today`,
+`incomplete_today`, `snapshots_today`, `writes_today`, `disk_free_mb`,
+per-venue coverage in `last_stats`.
+
+Hub (optional UI) remains on ``BOOKQ_HUB_PORT`` (8088).
+
+## P0 durability notes
+
+- Each UTC boundary is **committed before capture** — failures never re-open the same slot (no rate-limit tight loop).
+- Coverage floors (default Deribit ≥90%, Coincall ≥80%) gate parquet writes; partial peer success may still write.
+- Parquet layout: ``data/{raw_books,pair_scores}/date=YYYY-MM-DD/part-{ts_ms}.parquet`` (immutable parts; no full-day rewrite).
+- Disk abort if free &lt; ``BOOKQ_DISK_FREE_ABORT_MB`` (default 500).
 
 ## Restart / deploy
 

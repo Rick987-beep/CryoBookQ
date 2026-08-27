@@ -25,11 +25,17 @@ class Settings:
     snapshot_interval_min: int = 15
     data_dir: Path = Path("./data")
     hub_port: int = 8088
+    health_port: int = 8091
     coincall_api_key: str | None = None
     coincall_api_secret: str | None = None
     coincall_env: str = "production"
     telegram_bot_token: str | None = None
     telegram_chat_id: str | None = None
+    # P0 quality / disk
+    coverage_floor_deribit: float = 0.90
+    coverage_floor_coincall: float = 0.80
+    disk_free_warn_mb: int = 5000
+    disk_free_abort_mb: int = 500
 
     @property
     def has_coincall_creds(self) -> bool:
@@ -46,9 +52,14 @@ def get_settings(*, load: bool = True) -> Settings:
         snapshot_interval_min=int(os.getenv("BOOKQ_SNAPSHOT_INTERVAL_MIN", "15")),
         data_dir=data_dir,
         hub_port=int(os.getenv("BOOKQ_HUB_PORT", "8088")),
+        health_port=int(os.getenv("BOOKQ_HEALTH_PORT", "8091")),
         coincall_api_key=os.getenv("COINCALL_API_KEY") or None,
         coincall_api_secret=os.getenv("COINCALL_API_SECRET") or None,
         coincall_env=os.getenv("COINCALL_ENV", "production"),
         telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN") or None,
         telegram_chat_id=os.getenv("TELEGRAM_CHAT_ID") or None,
+        coverage_floor_deribit=float(os.getenv("BOOKQ_COVERAGE_FLOOR_DERIBIT", "0.90")),
+        coverage_floor_coincall=float(os.getenv("BOOKQ_COVERAGE_FLOOR_COINCALL", "0.80")),
+        disk_free_warn_mb=int(os.getenv("BOOKQ_DISK_FREE_WARN_MB", "5000")),
+        disk_free_abort_mb=int(os.getenv("BOOKQ_DISK_FREE_ABORT_MB", "500")),
     )

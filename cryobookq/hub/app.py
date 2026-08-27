@@ -31,7 +31,8 @@ PAGE = """
   <h1>CryoBookQ</h1>
   <p class="muted">Deribit vs Coincall option book quality</p>
   <p>Health: <span class="{{ 'ok' if health.last_ok else 'bad' }}">{{ 'ok' if health.last_ok else 'degraded' }}</span>
-     · snapshots today {{ health.snapshots_today }} · gaps {{ health.gaps_today }}
+     · snapshots {{ health.snapshots_today }} · writes {{ health.writes_today }}
+     · gaps {{ health.gaps_today }} · incomplete {{ health.incomplete_today }}
      · <a href="/health">/health</a></p>
   {% if summary.n_matched %}
   <h2>Last loaded scores</h2>

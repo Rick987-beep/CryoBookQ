@@ -12,6 +12,7 @@ Restart=on-failure
 RestartSec=5
 MemoryMax=2G
 LimitNOFILE=65536
+# Health JSON: curl 127.0.0.1:8091/health (BOOKQ_HEALTH_PORT)
 ReadWritePaths=/apps/cryobookq/data /apps/cryobookq/logs
 
 # Optional: run hub in a second unit or reverse-proxy a separate process.

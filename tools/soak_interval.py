@@ -1,0 +1,167 @@
+#!/usr/bin/env python3
+"""Hardened interval soak: N snapshots on a fixed cadence with slot commit.
+
+Example (1 minute, every 15s → 4 snaps)::
+
+    .venv/bin/python tools/soak_interval.py --total 60 --interval 15 --duration 10
+"""
+
+from __future__ import annotations
+
+import argparse
+import asyncio
+import json
+import logging
+import shutil
+import sys
+import time
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from cryobookq.analytics import summarize_snapshot, who_wins
+from cryobookq.capture.scheduler import IntervalSlotTracker
+from cryobookq.capture.snapshot import run_snapshot
+from cryobookq.config import Settings, get_settings
+from cryobookq.daemon.health import HEALTH, start_health_server
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+logger = logging.getLogger("soak_interval")
+
+
+async def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--total", type=float, default=60.0, help="Total wall seconds")
+    parser.add_argument("--interval", type=float, default=15.0, help="Seconds between slot opens")
+    parser.add_argument("--duration", type=float, default=10.0, help="Burst seconds per snap")
+    parser.add_argument("--data-dir", type=Path, default=Path("tmp/soak_interval"))
+    parser.add_argument("--health-port", type=int, default=0, help="0 = pick ephemeral")
+    args = parser.parse_args()
+
+    base = get_settings()
+    if not base.has_coincall_creds:
+        logger.error("Need COINCALL creds")
+        return 1
+
+    if args.data_dir.exists():
+        shutil.rmtree(args.data_dir)
+    args.data_dir.mkdir(parents=True)
+
+    settings = Settings(
+        underlying=base.underlying,
+        depth=base.depth,
+        snapshot_interval_min=base.snapshot_interval_min,
+        data_dir=args.data_dir,
+        hub_port=base.hub_port,
+        health_port=base.health_port,
+        coincall_api_key=base.coincall_api_key,
+        coincall_api_secret=base.coincall_api_secret,
+        coincall_env=base.coincall_env,
+        coverage_floor_deribit=base.coverage_floor_deribit,
+        coverage_floor_coincall=base.coverage_floor_coincall,
+        disk_free_warn_mb=base.disk_free_warn_mb,
+        disk_free_abort_mb=base.disk_free_abort_mb,
+    )
+    HEALTH.data_dir = str(settings.data_dir)
+    HEALTH.disk_free_warn_mb = settings.disk_free_warn_mb
+
+    import socket
+
+    port = args.health_port
+    if port <= 0:
+        s = socket.socket()
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]
+        s.close()
+    start_health_server(HEALTH, port=port)
+    logger.info("Health at http://127.0.0.1:%d/health", port)
+
+    n_slots = int(args.total // args.interval)
+    epoch = time.monotonic()
+    tracker = IntervalSlotTracker(interval_s=args.interval, epoch_monotonic=epoch)
+    per = []
+
+    for _ in range(n_slots):
+        now_m = time.monotonic()
+        fire_at, idx = tracker.next_slot(now_m)
+        wait = fire_at - time.monotonic()
+        if wait > 0:
+            await asyncio.sleep(wait)
+        tracker.commit(idx)  # spend slot before attempt
+        logger.info("=== slot %d/%d committed — bursting %.1fs ===", idx + 1, n_slots, args.duration)
+        try:
+            result = await run_snapshot(
+                ["deribit", "coincall"],
+                settings=settings,
+                duration_s=args.duration,
+                write=True,
+            )
+            q = result.quality
+            if q and q.ok and result.wrote:
+                HEALTH.record_success(result.ts_ms, result.stats, wrote=True)
+            else:
+                reason = "; ".join(q.reasons) if q else "unknown"
+                HEALTH.record_incomplete(
+                    result.ts_ms, result.stats, wrote=result.wrote, reason=reason
+                )
+            row = {
+                "slot": idx + 1,
+                "elapsed_s": round(time.monotonic() - epoch, 2),
+                "ts_iso": result.stats.get("ts_iso"),
+                "wrote": result.wrote,
+                "quality_ok": q.ok if q else None,
+                "reasons": list(q.reasons) if q else [],
+                "match_rate": result.stats.get("match_rate"),
+                "n_matched": result.stats.get("n_matched"),
+                "deribit_coverage": (result.stats.get("deribit") or {}).get("coverage"),
+                "coincall_coverage": (result.stats.get("coincall") or {}).get("coverage"),
+                "raw_path": result.raw_path,
+                "scores_path": result.scores_path,
+            }
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("slot %d failed", idx)
+            HEALTH.record_failure(str(exc))
+            HEALTH.record_gap()
+            row = {"slot": idx + 1, "error": str(exc), "elapsed_s": round(time.monotonic() - epoch, 2)}
+        per.append(row)
+        logger.info("%s", json.dumps(row))
+
+    from cryobookq.pipeline.write import ParquetStore
+
+    df = ParquetStore(args.data_dir).load_pair_scores()
+    summary = summarize_snapshot(df) if len(df) else {"n_rows": 0}
+    out = {
+        "config": {
+            "total_s": args.total,
+            "interval_s": args.interval,
+            "burst_s": args.duration,
+            "n_slots": n_slots,
+            "wall_s": round(time.monotonic() - epoch, 2),
+            "data_dir": str(args.data_dir),
+            "health_port": port,
+        },
+        "health": HEALTH.as_dict(),
+        "per_slot": per,
+        "aggregate": summary,
+        "queries": {
+            "composite": who_wins(df, metric="winner_composite").attrs.get("win_rate", {})
+            if len(df)
+            else {},
+            "by_dte": summary.get("by_dte_composite", {}),
+        },
+        "n_score_rows": int(len(df)),
+        "n_part_files": len(list(args.data_dir.glob("pair_scores/date=*/part-*.parquet"))),
+    }
+    out_path = args.data_dir / "summary.json"
+    out_path.write_text(json.dumps(out, indent=2, default=str))
+    print(json.dumps(out, indent=2, default=str))
+    logger.info("Wrote %s", out_path)
+    ok = all(p.get("wrote") and p.get("quality_ok") for p in per if "error" not in p)
+    return 0 if ok and per else 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(asyncio.run(main()))

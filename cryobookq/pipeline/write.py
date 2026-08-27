@@ -1,4 +1,9 @@
-"""Atomic daily Parquet writers for raw_books and pair_scores."""
+"""Atomic daily Parquet writers for raw_books and pair_scores.
+
+P0: each snapshot writes its own ``part-{ts_ms}.parquet`` file. We never
+read-modify-rewrite a growing daily blob (that was O(n²) I/O by end of day).
+Loaders glob all parts under ``date=YYYY-MM-DD/``.
+"""
 
 from __future__ import annotations
 
@@ -27,13 +32,21 @@ class ParquetStore:
         day = datetime.fromtimestamp(ts_ms / 1000, tz=UTC).strftime("%Y-%m-%d")
         return root / f"date={day}"
 
-    def raw_path(self, ts_ms: int, part: str = "part-000.parquet") -> Path:
-        return self._day_dir(self.raw_dir, ts_ms) / part
+    def raw_path(self, ts_ms: int) -> Path:
+        return self._day_dir(self.raw_dir, ts_ms) / f"part-{ts_ms}.parquet"
 
-    def scores_path(self, ts_ms: int, part: str = "part-000.parquet") -> Path:
-        return self._day_dir(self.scores_dir, ts_ms) / part
+    def scores_path(self, ts_ms: int) -> Path:
+        return self._day_dir(self.scores_dir, ts_ms) / f"part-{ts_ms}.parquet"
 
-    def write_raw_books(self, rows: list[dict], ts_ms: int, *, append: bool = True) -> Path:
+    def write_raw_books(
+        self,
+        rows: list[dict],
+        ts_ms: int,
+        *,
+        append: bool = False,  # noqa: ARG002 — kept for API compat; ignored
+        extra: dict[str, str] | None = None,
+    ) -> Path:
+        """Write one snapshot part file. ``append`` is ignored (parts are immutable)."""
         if not rows:
             raise ValueError("no raw book rows to write")
         df = pd.DataFrame(rows)
@@ -42,14 +55,22 @@ class ParquetStore:
                 df[col] = None
         df = df[RAW_BOOK_COLUMNS]
         path = self.raw_path(ts_ms)
-        if append and path.is_file():
-            existing = pd.read_parquet(path)
-            df = pd.concat([existing, df], ignore_index=True)
-        atomic_write_parquet(df, path, depth=self.depth, cadence_min=self.cadence_min, extra={"table": "raw_books"})
+        if path.is_file():
+            # Same ts_ms twice would overwrite; log loudly — BoundaryTracker should prevent this.
+            logger.warning("Overwriting existing raw part %s", path)
+        meta = {"table": "raw_books", **(extra or {})}
+        atomic_write_parquet(df, path, depth=self.depth, cadence_min=self.cadence_min, extra=meta)
         logger.info("Wrote %d raw_books rows → %s", len(df), path)
         return path
 
-    def write_pair_scores(self, rows: list[dict], ts_ms: int, *, append: bool = True) -> Path:
+    def write_pair_scores(
+        self,
+        rows: list[dict],
+        ts_ms: int,
+        *,
+        append: bool = False,  # noqa: ARG002
+        extra: dict[str, str] | None = None,
+    ) -> Path:
         if not rows:
             raise ValueError("no pair score rows to write")
         df = pd.DataFrame(rows)
@@ -58,10 +79,10 @@ class ParquetStore:
                 df[col] = None
         df = df[PAIR_SCORE_COLUMNS]
         path = self.scores_path(ts_ms)
-        if append and path.is_file():
-            existing = pd.read_parquet(path)
-            df = pd.concat([existing, df], ignore_index=True)
-        atomic_write_parquet(df, path, depth=self.depth, cadence_min=self.cadence_min, extra={"table": "pair_scores"})
+        if path.is_file():
+            logger.warning("Overwriting existing scores part %s", path)
+        meta = {"table": "pair_scores", **(extra or {})}
+        atomic_write_parquet(df, path, depth=self.depth, cadence_min=self.cadence_min, extra=meta)
         logger.info("Wrote %d pair_scores rows → %s", len(df), path)
         return path
 
@@ -77,9 +98,18 @@ class ParquetStore:
         files: list[Path] = []
         if dates:
             for d in dates:
-                files.extend((root / f"date={d}").glob("*.parquet"))
+                files.extend(sorted((root / f"date={d}").glob("part-*.parquet")))
+                # Legacy single-file layout from pre-P0
+                files.extend(sorted((root / f"date={d}").glob("part-000.parquet")))
         else:
-            files = list(root.glob("date=*/*.parquet"))
-        if not files:
+            files = sorted(root.glob("date=*/part-*.parquet"))
+        # De-dupe while preserving order
+        seen: set[Path] = set()
+        uniq: list[Path] = []
+        for f in files:
+            if f not in seen:
+                seen.add(f)
+                uniq.append(f)
+        if not uniq:
             return pd.DataFrame()
-        return pd.concat([pd.read_parquet(f) for f in files], ignore_index=True)
+        return pd.concat([pd.read_parquet(f) for f in uniq], ignore_index=True)

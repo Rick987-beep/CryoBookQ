@@ -130,13 +130,12 @@ class DeribitVenue:
             )
             return {}, stats
 
+        hard_deadline_ts: float | None = None
         if deadline is not None:
             if deadline.tzinfo is None:
                 deadline = deadline.replace(tzinfo=UTC)
-            deadline_ts = deadline.timestamp()
-        else:
-            dur = 15.0 if duration_s is None else duration_s
-            deadline_ts = time.time() + dur
+            hard_deadline_ts = deadline.timestamp()
+        collect_s = 15.0 if duration_s is None else float(duration_s)
 
         books: dict[str, BookL5] = {}
         keys = {s: option_key_from_symbol(s) for s in symbols}
@@ -175,6 +174,13 @@ class DeribitVenue:
                 for i in range(0, len(channels), _SUBSCRIBE_BATCH):
                     batch = channels[i : i + _SUBSCRIBE_BATCH]
                     await send(ws, "public/subscribe", {"channels": batch})
+
+                deadline_ts = (
+                    hard_deadline_ts
+                    if hard_deadline_ts is not None
+                    else time.time() + collect_s
+                )
+                notes.append(f"collect_until_unix={deadline_ts:.3f}")
 
                 # Drain subscribe acks + book updates until deadline
                 while time.time() < deadline_ts:

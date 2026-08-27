@@ -28,8 +28,8 @@ isProject: false
 
 # CryoBookQ — Exchange orderbook quality comparer
 
-> **Repo status:** M0–M5 implemented locally (2026-08-26). Dual snapshot → match → score → Parquet + hub + deploy artifacts.  
-> **Next:** **M6** apps deploy — **explicit approval required**. Do not run `deploy.sh` against prod without it.
+> **Repo status:** M0–M5 + **P0 hardening** (boundary commit, quality gate, part-file parquet, health HTTP, disk abort).  
+> **Next:** P1 (Telegram, clock sync, hub unit) then **M6** apps deploy with explicit approval.
 
 ## Target state (product)
 
