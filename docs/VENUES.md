@@ -48,7 +48,7 @@ Do not store size as dollars of BTC underlying (`sz_btc × index`).
 | Coincall | WS `orderBook` batches of 100 | Signed URL |
 | Bybit | WS `orderbook.25.{symbol}` | Public |
 | OKX | WS `books5` | Public |
-| Binance | `wss://fstream.binance.com/eoptions/ws` `{sym.lower()}@depth10@100ms` + REST `depth?limit=10` fill | `nbstream` is 404 |
+| Binance | `wss://fstream.binance.com/eoptions/ws` `{sym.lower()}@depth10@100ms` + REST `depth?limit=10` fill | `nbstream` is 404. `exchangeInfo` retries on HTTP 429. |
 
 Isolation: per-venue `asyncio.wait_for`; a hang/error skips that venue for the slot.
 `quality.ok` = Deribit (hub) met its coverage floor.

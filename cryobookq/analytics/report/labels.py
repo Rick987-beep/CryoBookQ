@@ -5,6 +5,18 @@ from __future__ import annotations
 VENUE_LABELS = {
     "deribit": "Deribit",
     "coincall": "Coincall",
+    "bybit": "Bybit",
+    "okx": "OKX",
+    "binance": "Binance",
+}
+
+# Left-border accents on overall cards (CSS `data-venue`).
+VENUE_COLORS = {
+    "deribit": "#1f6feb",
+    "coincall": "#c9a227",
+    "bybit": "#f7a600",
+    "okx": "#000000",
+    "binance": "#f0b90b",
 }
 
 TENOR_LABELS = {

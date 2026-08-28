@@ -8,26 +8,27 @@ Figures are point-in-time L5 books; they are not a prediction of fill quality un
 
 [sections.overall]
 heading = "Overall index (0–10)"
-explain = """Comparable multi-venue score. Higher is better. Built only from <strong>matched</strong>
-options (same underlying, expiry, strike, call/put on both venues). Absolute score
-bands are fixed so adding a third venue does not reshuffle peer ranks."""
+explain = """Comparable multi-venue score. Higher is better. Built from
+<strong>Deribit-listed (hub)</strong> options; other venues are looked up independently.
+A missing book zeros that venue’s cell only. Absolute score bands are fixed so adding
+a venue does not AND-filter the universe or reshuffle peer ranks."""
 
 [sections.components]
 heading = "Component summary"
 explain = """The overall index is a weighted blend of three components:
 <strong>grid</strong> ({grid_pct} — tradable ATM-to-wing landmarks),
 <strong>wings</strong> ({wings_pct} — very far OTM / 2.5Δ),
-and <strong>presence</strong> ({presence_pct} — share of matched
-books that are two-sided)."""
+and <strong>presence</strong> ({presence_pct} — share of hub-listed
+books this venue quotes two-sided)."""
 
 [sections.executive]
 heading = "Executive Summary"
 
 [sections.presence]
 heading = "Presence"
-explain = """Among matched contracts with |Δ| ≥ 0.05, what fraction of books have both a bid and
-an ask? Listing many one-sided names lowers this score. Missing quotes also zero-out
-spread and $10k-lift scores in the landmark grid for that venue."""
+explain = """Among Deribit-listed contracts this venue also listed, with |Δ| ≥ 0.05, what fraction
+of books have both a bid and an ask? Listing many one-sided names lowers this score.
+A missing book on one venue does not drop peers’ scores."""
 
 [sections.grid]
 heading = "Liquidity grid (3×3)"
@@ -53,7 +54,7 @@ heading = "Methodology notes"
 
 [[sections.methodology.items]]
 term = "Universe"
-definition = "BTC options only. Exact match on (expiry, strike, call/put). Unmatched listings are excluded from landmark cells."
+definition = "BTC options only. Deribit is the listing hub. Exact match on (expiry, strike, call/put). Other venues are looked up independently — never an N-way intersection."
 
 [[sections.methodology.items]]
 term = "$10k lift"
@@ -69,4 +70,4 @@ definition = "When multiple snapshots are included, each snapshot gets a full sc
 
 [[sections.methodology.items]]
 term = "Deltas"
-definition = "Canonical |Δ| from Deribit mark IV / forward (Black–Scholes), attached to both venues’ matched contracts for landmark selection."
+definition = "Canonical |Δ| from Deribit mark IV / forward (Black–Scholes), attached to hub contracts for landmark selection."

@@ -149,7 +149,7 @@ async def run_snapshot(
 
     for label, result in zip(labels, gathered, strict=True):
         if isinstance(result, BaseException):
-            logger.exception("Venue %s failed", label, exc_info=result)
+            logger.error("Venue %s skipped this slot: %s", label, result)
             bs = _error_stats(label, result, n_inst.get(label, 0))
             d = bs.to_dict()
             d["error"] = f"{type(result).__name__}:{result}"

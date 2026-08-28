@@ -34,13 +34,20 @@ def _book_row(*, venue: str, key: OptionKey, delta: float, bid: float, ask: floa
     return row
 
 
-def _mini_card():
+def _mini_card(*, include_bybit: bool = True):
     ts = 1_700_000_000_000
     pairs = []
     for dte in (1.0, 2.0, 7.0, 14.0, 21.0, 60.0, 90.0, 120.0):
         exp = ts + int(dte * 86400_000)
         for is_call, delta in [(True, 0.5), (False, -0.5), (True, 0.25), (False, -0.25)]:
             key = OptionKey("BTC", exp, 80_000.0 + (1 if is_call else 0), is_call)
+            extra = {}
+            if include_bybit:
+                extra = {
+                    "bybit": _book_row(
+                        venue="bybit", key=key, delta=delta, bid=198, ask=210, sz=8
+                    )
+                }
             pairs.append(
                 MatchedPair(
                     key=key,
@@ -50,6 +57,7 @@ def _mini_card():
                     coincall=_book_row(
                         venue="coincall", key=key, delta=delta, bid=190, ask=220, sz=5
                     ),
+                    books=extra,
                 )
             )
     return build_scorecard(pairs, ts_ms=ts)
@@ -60,6 +68,11 @@ def test_html_contains_sections_and_venues() -> None:
     doc = render_scorecard_html(card)
     assert "Comparison Scorecard" in doc
     assert "Deribit" in doc and "Coincall" in doc
+    assert "Bybit" in doc
+    assert 'data-venue="bybit"' in doc
+    assert "Deribit-listed" in doc or "hub" in doc.lower()
+    assert "on both venues" not in doc
+    assert "matched pair" not in doc.lower()
     assert "Overall index" in doc
     assert "Presence" in doc
     assert "Liquidity grid" in doc
@@ -75,6 +88,16 @@ def test_executive_summary_mentions_leader() -> None:
     text = build_executive_summary(card)
     assert "Deribit" in text
     assert "/ 10" in text
+
+
+def test_html_missing_venue_does_not_drop_deribit() -> None:
+    with_peer = _mini_card(include_bybit=True)
+    without = _mini_card(include_bybit=False)
+    assert with_peer.overall["deribit"] == without.overall["deribit"]
+    assert with_peer.overall["coincall"] == without.overall["coincall"]
+    doc = render_scorecard_html(with_peer)
+    assert "Bybit" in doc
+    assert "Deribit" in render_scorecard_html(without)
 
 
 def test_roundtrip_dict() -> None:

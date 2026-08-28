@@ -28,12 +28,13 @@ isProject: false
 
 # CryoBookQ — Exchange orderbook quality comparer
 
-> **Repo status:** M0–M5 + P0 + P1 + landmark scorecard.  
-> **Next:** multi-exchange ME0–ME4 (Bybit, OKX, Binance; see `docs/VENUES.md`) then **M6** apps deploy with explicit approval.
+> **Repo status:** M0–M5 + P0 + P1 + landmark scorecard + multi-exchange ME0–ME4 (local).  
+> **Next:** **M6** apps deploy with explicit approval. Do not enable five venues on apps until approved.
 
 ## Target state (product)
 
-Continuously compare **Deribit vs Coincall** BTC option orderbook quality across the **full chain** (all shared expiries), not landmark strikes.
+Continuously compare **Deribit (hub)** vs Coincall, Bybit, Binance, and OKX BTC option
+orderbook quality across the **full chain** (Deribit-listed expiries), not landmark strikes.
 
 | Knob | v1 choice |
 |------|-----------|

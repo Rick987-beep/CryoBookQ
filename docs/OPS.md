@@ -34,7 +34,10 @@ Hub (UI) remains on ``BOOKQ_HUB_PORT`` (8088).
 ## P0 / P1 durability notes
 
 - Each UTC boundary is **committed before capture** — failures never re-open the same slot.
-- Coverage floors (default Deribit ≥90%, Coincall ≥80%) gate parquet writes.
+- Coverage floors gate **that venue’s** parquet rows (default Deribit ≥90%; others ≥80%).
+  `quality.ok` is true when **Deribit (hub)** met its floor. Other venue failures are
+  incomplete, not a daemon gap.
+- `BOOKQ_BURST_TIMEOUT_S` (default 25) kills a hung venue burst so peers still finish.
 - Parquet: ``data/{raw_books,pair_scores}/date=YYYY-MM-DD/part-{ts_ms}.parquet``.
 - Disk abort if free &lt; ``BOOKQ_DISK_FREE_ABORT_MB`` (default 500).
 - **P1:** Deribit clock sync for boundary opens; instrument list cache (30‑min TTL, stale-on-failure); UTC midnight counter roll; REST off the event loop via ``asyncio.to_thread``.
@@ -54,7 +57,13 @@ systemctl restart cryobookq-hub
 Warn if free &lt; 5 GB. Archive old Parquet under `data/` monthly if needed.  
 **Never delete `data/` without approval.**
 
-## Gaps
+## Venues
+
+`--venues deribit,coincall,bybit,okx,binance` (comma-separated). Public MD for
+Deribit/Bybit/OKX/Binance; Coincall needs API keys. Do **not** enable all five on
+apps until explicitly approved. First production add: Bybit+OKX beside the existing two.
+
+See `docs/VENUES.md` and `docs/ARCHITECTURE.md`.
 
 Missed boundaries increment `gaps_today`. No L5 backfill (point-in-time only).
 

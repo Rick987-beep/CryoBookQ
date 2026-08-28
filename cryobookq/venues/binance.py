@@ -49,7 +49,13 @@ class BinanceVenue:
         self.ws_url = ws_url
 
     def list_instruments(self, underlying: str = "BTC") -> list[Instrument]:
-        r = requests.get(f"{self.rest_url}/eapi/v1/exchangeInfo", timeout=30)
+        r = None
+        for attempt in range(3):
+            r = requests.get(f"{self.rest_url}/eapi/v1/exchangeInfo", timeout=30)
+            if r.status_code != 429:
+                break
+            time.sleep(0.8 * (attempt + 1))
+        assert r is not None
         r.raise_for_status()
         info = r.json()
         want = f"{underlying}USDT"

@@ -661,7 +661,7 @@ def aggregate_scorecards(cards: list[ScorecardResult]) -> ScorecardResult:
     if len(cards) == 1:
         return cards[0]
 
-    preferred = ["deribit", "coincall"]
+    preferred = ["deribit", "coincall", "bybit", "okx", "binance"]
     found: set[str] = set()
     for c in cards:
         found.update(c.venues)

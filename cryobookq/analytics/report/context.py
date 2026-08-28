@@ -19,6 +19,7 @@ from cryobookq.analytics.report.labels import (
     DELTA_LABELS,
     TENOR_BLURBS,
     TENOR_LABELS,
+    VENUE_COLORS,
     venue_name,
 )
 from cryobookq.analytics.report.narrative import build_executive_summary, component_means
@@ -74,8 +75,9 @@ def _overall_cards_html(card: ScorecardResult) -> SafeHTML:
     for i, (v, score) in enumerate(ranked):
         badge = "Leader" if i == 0 else f"#{i + 1}"
         leader_cls = " leader" if i == 0 else ""
+        color = VENUE_COLORS.get(v, "#5c6b7a")
         parts.append(
-            f"""<div class="score-card{leader_cls}">
+            f"""<div class="score-card{leader_cls}" data-venue="{esc(v)}" style="border-left:4px solid {esc(color)}">
   <div class="badge">{esc(badge)}</div>
   <div class="venue">{esc(venue_name(v))}</div>
   <div class="big">{esc(fmt_num(score))}<span class="outof"> / 10</span></div>
