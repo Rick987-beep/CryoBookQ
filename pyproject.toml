@@ -34,6 +34,14 @@ cryobookq-hub = "cryobookq.hub.app:main"
 [tool.setuptools.packages.find]
 include = ["cryobookq*"]
 
+[tool.setuptools.package-data]
+cryobookq = [
+    "analytics/report/copy.toml",
+    "analytics/report/templates/*.html",
+    "analytics/report/templates/*.css",
+    "analytics/report/templates/snippets/*.html",
+]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = [

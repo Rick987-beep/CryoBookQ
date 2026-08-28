@@ -1,0 +1,286 @@
+{
+  "ts_ms": 1787903088177,
+  "venues": [
+    "deribit",
+    "coincall"
+  ],
+  "grid": {
+    "far:25d": {
+      "tenor": "far",
+      "delta": "25d",
+      "n_targets_used": 3,
+      "venues": {
+        "deribit": {
+          "spread_pct": 3.8259638887434613,
+          "lift_effective_pct": 2.0366445237312223,
+          "depth_usd": 938760.080409438,
+          "score": 7.705630901211827
+        },
+        "coincall": {
+          "spread_pct": 4.041632219145431,
+          "lift_effective_pct": 2.5115933755876547,
+          "depth_usd": 78370.61260162602,
+          "score": 7.299457422662764
+        }
+      }
+    },
+    "far:50d": {
+      "tenor": "far",
+      "delta": "50d",
+      "n_targets_used": 3,
+      "venues": {
+        "deribit": {
+          "spread_pct": 2.0514683902392683,
+          "lift_effective_pct": 1.0344200497200637,
+          "depth_usd": 1185543.0086338823,
+          "score": 7.686669401855555
+        },
+        "coincall": {
+          "spread_pct": 2.243468242740711,
+          "lift_effective_pct": 1.1983749096512981,
+          "depth_usd": 195384.70548780487,
+          "score": 7.284278528020747
+        }
+      }
+    },
+    "far:7p5d": {
+      "tenor": "far",
+      "delta": "7p5d",
+      "n_targets_used": 3,
+      "venues": {
+        "deribit": {
+          "spread_pct": 12.55068241454874,
+          "lift_effective_pct": 6.929672460886741,
+          "depth_usd": 291515.46907752217,
+          "score": 7.094305050024987
+        },
+        "coincall": {
+          "spread_pct": 15.828689629365963,
+          "lift_effective_pct": 6.330055930816655,
+          "depth_usd": 18338.77412601626,
+          "score": 6.107465902032981
+        }
+      }
+    },
+    "mid:25d": {
+      "tenor": "mid",
+      "delta": "25d",
+      "n_targets_used": 3,
+      "venues": {
+        "deribit": {
+          "spread_pct": 9.863830740317796,
+          "lift_effective_pct": 5.309972804083901,
+          "depth_usd": 505574.17977614165,
+          "score": 4.345888347199064
+        },
+        "coincall": {
+          "spread_pct": 4.977273654435235,
+          "lift_effective_pct": 4.69119638209533,
+          "depth_usd": 37955.68079268293,
+          "score": 6.065134644826569
+        }
+      }
+    },
+    "mid:50d": {
+      "tenor": "mid",
+      "delta": "50d",
+      "n_targets_used": 3,
+      "venues": {
+        "deribit": {
+          "spread_pct": 4.845063594216509,
+          "lift_effective_pct": 2.531521385042957,
+          "depth_usd": 658915.3329336869,
+          "score": 4.655837038314231
+        },
+        "coincall": {
+          "spread_pct": 2.9759105410709985,
+          "lift_effective_pct": 1.8058587525475516,
+          "depth_usd": 88029.7843495935,
+          "score": 6.146227483076291
+        }
+      }
+    },
+    "mid:7p5d": {
+      "tenor": "mid",
+      "delta": "7p5d",
+      "n_targets_used": 3,
+      "venues": {
+        "deribit": {
+          "spread_pct": 15.701637279805364,
+          "lift_effective_pct": 11.710559820093287,
+          "depth_usd": 100341.40927799452,
+          "score": 6.02179028014495
+        },
+        "coincall": {
+          "spread_pct": 25.212501675087125,
+          "lift_effective_pct": 12.881887227572623,
+          "depth_usd": 9432.320487804878,
+          "score": 3.642767122665053
+        }
+      }
+    },
+    "short:25d": {
+      "tenor": "short",
+      "delta": "25d",
+      "n_targets_used": 2,
+      "venues": {
+        "deribit": {
+          "spread_pct": 13.873319438482609,
+          "lift_effective_pct": 8.809977336592013,
+          "depth_usd": 145781.82542741433,
+          "score": 2.354373297770315
+        },
+        "coincall": {
+          "spread_pct": 11.11896081732755,
+          "lift_effective_pct": 10.359135449061329,
+          "depth_usd": 14374.513292682928,
+          "score": 2.467609054359812
+        }
+      }
+    },
+    "short:50d": {
+      "tenor": "short",
+      "delta": "50d",
+      "n_targets_used": 2,
+      "venues": {
+        "deribit": {
+          "spread_pct": 10.081924438032507,
+          "lift_effective_pct": 5.915164283757268,
+          "depth_usd": 246935.27702360763,
+          "score": 1.3294717075531202
+        },
+        "coincall": {
+          "spread_pct": 5.945566819519096,
+          "lift_effective_pct": 4.970639558588498,
+          "depth_usd": 33793.56021341463,
+          "score": 2.551351988059191
+        }
+      }
+    },
+    "short:7p5d": {
+      "tenor": "short",
+      "delta": "7p5d",
+      "n_targets_used": 2,
+      "venues": {
+        "deribit": {
+          "spread_pct": 29.227975215334247,
+          "lift_effective_pct": 26.270228606120078,
+          "depth_usd": 35616.03375164177,
+          "score": 3.085764127402876
+        },
+        "coincall": {
+          "spread_pct": 36.39048775003961,
+          "lift_effective_pct": null,
+          "depth_usd": 3669.0341158536585,
+          "score": 1.880422776257336
+        }
+      }
+    }
+  },
+  "wings": {
+    "far:2p5d": {
+      "tenor": "far",
+      "delta": "2p5d",
+      "n_targets_used": 3,
+      "venues": {
+        "deribit": {
+          "spread_pct": 14.29056709544927,
+          "lift_effective_pct": 10.505202174820418,
+          "depth_usd": 140559.77551296077,
+          "score": 8.070014485218106
+        },
+        "coincall": {
+          "spread_pct": 26.5030956234274,
+          "lift_effective_pct": 5.796019315952708,
+          "depth_usd": 10737.863231707317,
+          "score": 5.4952490143946475
+        }
+      }
+    },
+    "mid:2p5d": {
+      "tenor": "mid",
+      "delta": "2p5d",
+      "n_targets_used": 3,
+      "venues": {
+        "deribit": {
+          "spread_pct": 28.892473020846833,
+          "lift_effective_pct": 29.527202686558134,
+          "depth_usd": 73133.40524196281,
+          "score": 6.2885463245061075
+        },
+        "coincall": {
+          "spread_pct": 49.64164079546596,
+          "lift_effective_pct": 12.881887227572623,
+          "depth_usd": 6363.691158536585,
+          "score": 3.618402136990685
+        }
+      }
+    },
+    "short:2p5d": {
+      "tenor": "short",
+      "delta": "2p5d",
+      "n_targets_used": 2,
+      "venues": {
+        "deribit": {
+          "spread_pct": 63.80741210009503,
+          "lift_effective_pct": 86.85402440316165,
+          "depth_usd": 12454.578749277134,
+          "score": 2.6511299465595135
+        },
+        "coincall": {
+          "spread_pct": 109.89318533054839,
+          "lift_effective_pct": null,
+          "depth_usd": 1078.3665548780486,
+          "score": 0.46211986701669927
+        }
+      }
+    }
+  },
+  "presence": {
+    "n_eligible": 841,
+    "per_venue": {
+      "deribit": {
+        "n": 68968,
+        "n_two_sided": 68965,
+        "two_sided_rate": 0.9999561144281509,
+        "score": 9.99956114428151
+      },
+      "coincall": {
+        "n": 68968,
+        "n_two_sided": 35489,
+        "two_sided_rate": 0.5146081364329668,
+        "score": 5.146081364329668
+      }
+    }
+  },
+  "overall": {
+    "deribit": 6.0858736227070125,
+    "coincall": 4.563915335556786
+  },
+  "landmarks": [],
+  "meta": {
+    "n_snapshots": 82,
+    "ts_ms_first": 1787830188162,
+    "ts_ms_last": 1787903088177,
+    "n_matched_mean": 1004.5365853658536,
+    "n_with_delta_mean": 1004.5365853658536,
+    "notional_usd": 10000.0,
+    "weights": {
+      "grid": 0.6,
+      "wings": 0.2,
+      "presence": 0.2
+    },
+    "cell_weights": {
+      "spread": 0.65,
+      "size": 0.25,
+      "depth": 0.1
+    },
+    "aggregated": true,
+    "filter": {
+      "start_ms": null,
+      "end_ms": null,
+      "utc_hour_start": null,
+      "utc_hour_end": null
+    }
+  }
+}

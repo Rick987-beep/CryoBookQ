@@ -6,9 +6,17 @@ from pathlib import Path
 
 import pandas as pd
 
+from cryobookq.analytics.html_report import (
+    build_executive_summary,
+    render_scorecard_html,
+    write_scorecard_html,
+)
 from cryobookq.analytics.scorecard import (
     ScorecardResult,
+    aggregate_scorecards,
     build_scorecard,
+    build_scorecard_from_store,
+    build_scorecard_period,
     format_scorecard,
 )
 from cryobookq.config import get_settings
@@ -16,11 +24,17 @@ from cryobookq.pipeline.write import ParquetStore
 
 __all__ = [
     "ScorecardResult",
+    "aggregate_scorecards",
+    "build_executive_summary",
     "build_scorecard",
+    "build_scorecard_from_store",
+    "build_scorecard_period",
     "format_scorecard",
     "load_scores",
+    "render_scorecard_html",
     "summarize_snapshot",
     "who_wins",
+    "write_scorecard_html",
 ]
 
 

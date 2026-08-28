@@ -22,12 +22,19 @@ Scores use **absolute** refs so a third venue does not reshuffle peers.
 
 from __future__ import annotations
 
+import logging
 import math
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
-from cryobookq.pipeline.match import MatchedPair
+import pandas as pd
+
+from cryobookq.pipeline.match import MatchedPair, match_raw_rows
 from cryobookq.pipeline.score import dte_for, venue_metrics
+
+logger = logging.getLogger(__name__)
 
 # ── landmarks ─────────────────────────────────────────────────────────────
 
@@ -80,6 +87,14 @@ OVERALL_WEIGHTS = {
     "grid": 0.60,
     "wings": 0.20,
     "presence": 0.20,
+}
+
+# Within each landmark cell: spread dominates (small-ticket quote quality);
+# $10k lift is the primary size check; depth is a light inventory signal.
+CELL_WEIGHTS = {
+    "spread": 0.65,
+    "size": 0.25,
+    "depth": 0.10,
 }
 
 
@@ -297,7 +312,8 @@ def contract_metrics(row: dict[str, Any] | None, *, delta_label: str) -> dict[st
         else 0.0
     )
     depth_s = score_higher_better(depth, DEPTH_REF_USD[delta_label]) if two else 0.0
-    cell = _mean_scores([spread_s, size_s, depth_s])
+    w = CELL_WEIGHTS
+    cell = w["spread"] * spread_s + w["size"] * size_s + w["depth"] * depth_s
     return {
         "two_sided": two,
         "spread_pct": spread,
@@ -566,12 +582,258 @@ def build_scorecard(pairs: list[MatchedPair], *, ts_ms: int) -> ScorecardResult:
             "n_matched": len(matched),
             "n_with_delta": n_with_delta,
             "n_expiries": len(expiries),
+            "n_snapshots": 1,
             "notional_usd": NOTIONAL_USD,
             "weights": dict(OVERALL_WEIGHTS),
+            "cell_weights": dict(CELL_WEIGHTS),
             "tenor_targets": {k: list(v) for k, v in TENOR_TARGETS.items()},
             "delta_targets": dict(DELTA_TARGETS),
             "wing_delta": WING_DELTA,
         },
+    )
+
+
+def hour_in_utc_window(hour: int, start: int, end: int) -> bool:
+    """Return True if ``hour`` is in ``[start, end)`` UTC (supports wrap, e.g. 22→6)."""
+    if not (0 <= start <= 24 and 0 <= end <= 24):
+        raise ValueError(f"hours must be in 0..24, got {start=}, {end=}")
+    if start == end:
+        return True  # full day
+    if start < end:
+        return start <= hour < end
+    return hour >= start or hour < end
+
+
+def filter_raw_books(
+    df: pd.DataFrame,
+    *,
+    start_ms: int | None = None,
+    end_ms: int | None = None,
+    utc_hour_start: int | None = None,
+    utc_hour_end: int | None = None,
+) -> pd.DataFrame:
+    """Filter raw_books rows by absolute ts range and/or UTC clock hours.
+
+    ``utc_hour_start`` / ``utc_hour_end`` use ``[start, end)`` (end exclusive).
+    Example: 12→18 keeps snapshots whose UTC hour is 12,13,14,15,16,17.
+    """
+    if df.empty:
+        return df
+    if "ts" not in df.columns:
+        raise KeyError("raw_books frame needs a 'ts' column")
+    out = df
+    if start_ms is not None:
+        out = out[out["ts"] >= start_ms]
+    if end_ms is not None:
+        out = out[out["ts"] < end_ms]
+    if utc_hour_start is not None or utc_hour_end is not None:
+        if utc_hour_start is None or utc_hour_end is None:
+            raise ValueError("utc_hour_start and utc_hour_end must both be set")
+        hours = out["ts"].map(
+            lambda t: datetime.fromtimestamp(int(t) / 1000, tz=UTC).hour
+        )
+        mask = hours.map(lambda h: hour_in_utc_window(int(h), utc_hour_start, utc_hour_end))
+        out = out[mask]
+    return out.reset_index(drop=True)
+
+
+def _avg_venue_metrics(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    if not rows:
+        return {
+            "spread_pct": None,
+            "lift_effective_pct": None,
+            "depth_usd": None,
+            "score": 0.0,
+        }
+    return {
+        "spread_pct": _mean([r.get("spread_pct") for r in rows]),
+        "lift_effective_pct": _mean([r.get("lift_effective_pct") for r in rows]),
+        "depth_usd": _mean([r.get("depth_usd") for r in rows]),
+        "score": _mean_scores([float(r.get("score") or 0.0) for r in rows]),
+    }
+
+
+def aggregate_scorecards(cards: list[ScorecardResult]) -> ScorecardResult:
+    """Mean scorecard across snapshots (equal weight per snapshot).
+
+    Presence rates/scores are averaged; ``n`` / ``n_two_sided`` are summed.
+    Landmarks are omitted (too noisy across time); see per-snapshot cards if needed.
+    """
+    if not cards:
+        raise ValueError("no scorecards to aggregate")
+    if len(cards) == 1:
+        return cards[0]
+
+    preferred = ["deribit", "coincall"]
+    found: set[str] = set()
+    for c in cards:
+        found.update(c.venues)
+    venues = [v for v in preferred if v in found] + sorted(found - set(preferred))
+
+    def _agg_block(getter) -> dict[str, Any]:
+        keys: set[str] = set()
+        for c in cards:
+            keys.update(getter(c).keys())
+        out: dict[str, Any] = {}
+        for key in sorted(keys):
+            n_used = []
+            per_v: dict[str, list[dict[str, Any]]] = {v: [] for v in venues}
+            tenor = delta = None
+            for c in cards:
+                block = getter(c)
+                if key not in block:
+                    continue
+                cell = block[key]
+                tenor = cell.get("tenor", tenor)
+                delta = cell.get("delta", delta)
+                n_used.append(int(cell.get("n_targets_used") or 0))
+                for v in venues:
+                    if v in cell.get("venues", {}):
+                        per_v[v].append(cell["venues"][v])
+            out[key] = {
+                "tenor": tenor,
+                "delta": delta,
+                "n_targets_used": int(round(_mean_scores([float(x) for x in n_used]))) if n_used else 0,
+                "venues": {v: _avg_venue_metrics(per_v[v]) for v in venues},
+            }
+        return out
+
+    grid = _agg_block(lambda c: c.grid)
+    wings = _agg_block(lambda c: c.wings)
+
+    presence: dict[str, Any] = {"n_eligible": 0, "per_venue": {}}
+    elig = [int(c.presence.get("n_eligible") or 0) for c in cards]
+    presence["n_eligible"] = int(round(_mean_scores([float(x) for x in elig]))) if elig else 0
+    for v in venues:
+        rates, scores, ns, n2 = [], [], [], []
+        for c in cards:
+            pv = (c.presence.get("per_venue") or {}).get(v)
+            if not pv:
+                continue
+            rates.append(float(pv.get("two_sided_rate") or 0.0))
+            scores.append(float(pv.get("score") or 0.0))
+            ns.append(int(pv.get("n") or 0))
+            n2.append(int(pv.get("n_two_sided") or 0))
+        presence["per_venue"][v] = {
+            "n": sum(ns),
+            "n_two_sided": sum(n2),
+            "two_sided_rate": _mean_scores(rates) if rates else 0.0,
+            "score": _mean_scores(scores) if scores else 0.0,
+        }
+
+    overall = {
+        v: _mean_scores([float(c.overall[v]) for c in cards if v in c.overall]) for v in venues
+    }
+
+    ts_list = sorted(c.ts_ms for c in cards)
+    return ScorecardResult(
+        ts_ms=ts_list[-1],
+        venues=venues,
+        grid=grid,
+        wings=wings,
+        presence=presence,
+        overall=overall,
+        landmarks=[],
+        meta={
+            "n_snapshots": len(cards),
+            "ts_ms_first": ts_list[0],
+            "ts_ms_last": ts_list[-1],
+            "n_matched_mean": _mean(
+                [float(c.meta.get("n_matched") or 0) for c in cards]
+            ),
+            "n_with_delta_mean": _mean(
+                [float(c.meta.get("n_with_delta") or 0) for c in cards]
+            ),
+            "notional_usd": NOTIONAL_USD,
+            "weights": dict(OVERALL_WEIGHTS),
+            "cell_weights": dict(CELL_WEIGHTS),
+            "aggregated": True,
+        },
+    )
+
+
+def build_scorecards_from_raw(
+    df: pd.DataFrame,
+    *,
+    start_ms: int | None = None,
+    end_ms: int | None = None,
+    utc_hour_start: int | None = None,
+    utc_hour_end: int | None = None,
+) -> list[ScorecardResult]:
+    """One scorecard per distinct snapshot ``ts`` in filtered raw_books."""
+    filtered = filter_raw_books(
+        df,
+        start_ms=start_ms,
+        end_ms=end_ms,
+        utc_hour_start=utc_hour_start,
+        utc_hour_end=utc_hour_end,
+    )
+    if filtered.empty:
+        return []
+    cards: list[ScorecardResult] = []
+    for ts, group in filtered.groupby("ts", sort=True):
+        rows = group.to_dict(orient="records")
+        pairs = match_raw_rows(rows)
+        if not pairs:
+            logger.warning("No pairs for ts=%s — skipping", ts)
+            continue
+        cards.append(build_scorecard(pairs, ts_ms=int(ts)))
+    return cards
+
+
+def build_scorecard_period(
+    df: pd.DataFrame,
+    *,
+    start_ms: int | None = None,
+    end_ms: int | None = None,
+    utc_hour_start: int | None = None,
+    utc_hour_end: int | None = None,
+) -> ScorecardResult:
+    """Aggregate landmark scorecard over many raw_books snapshots.
+
+    Requires L5 + ``delta`` on raw rows (as written by the daemon after enrichment).
+    """
+    cards = build_scorecards_from_raw(
+        df,
+        start_ms=start_ms,
+        end_ms=end_ms,
+        utc_hour_start=utc_hour_start,
+        utc_hour_end=utc_hour_end,
+    )
+    if not cards:
+        raise ValueError("no snapshots in window to score")
+    card = aggregate_scorecards(cards)
+    card.meta["filter"] = {
+        "start_ms": start_ms,
+        "end_ms": end_ms,
+        "utc_hour_start": utc_hour_start,
+        "utc_hour_end": utc_hour_end,
+    }
+    return card
+
+
+def build_scorecard_from_store(
+    data_dir: Path | str,
+    *,
+    dates: list[str] | None = None,
+    start_ms: int | None = None,
+    end_ms: int | None = None,
+    utc_hour_start: int | None = None,
+    utc_hour_end: int | None = None,
+) -> ScorecardResult:
+    """Load raw_books from ``ParquetStore`` and build a period scorecard."""
+    from cryobookq.pipeline.write import ParquetStore
+
+    store = ParquetStore(Path(data_dir))
+    df = store.load_raw_books(dates)
+    if df.empty:
+        raise ValueError(f"no raw_books under {data_dir}")
+    return build_scorecard_period(
+        df,
+        start_ms=start_ms,
+        end_ms=end_ms,
+        utc_hour_start=utc_hour_start,
+        utc_hour_end=utc_hour_end,
     )
 
 
@@ -584,11 +846,25 @@ def format_scorecard(card: ScorecardResult) -> str:
         return f"{x:{width}.2f}{suffix}"
 
     lines: list[str] = []
-    lines.append(f"Scorecard ts_ms={card.ts_ms} venues={','.join(card.venues)}")
+    n_snap = int(card.meta.get("n_snapshots") or 1)
     lines.append(
-        f"matched={card.meta.get('n_matched')} with_delta={card.meta.get('n_with_delta')} "
-        f"expiries={card.meta.get('n_expiries')}"
+        f"Scorecard venues={','.join(card.venues)}  snapshots={n_snap}  "
+        f"ts_last={card.ts_ms}"
     )
+    if card.meta.get("aggregated"):
+        lines.append(
+            f"period ts_ms {card.meta.get('ts_ms_first')} → {card.meta.get('ts_ms_last')}  "
+            f"matched_mean={card.meta.get('n_matched_mean')}  "
+            f"delta_mean={card.meta.get('n_with_delta_mean')}"
+        )
+        filt = card.meta.get("filter") or {}
+        if any(filt.get(k) is not None for k in filt):
+            lines.append(f"filter={filt}")
+    else:
+        lines.append(
+            f"matched={card.meta.get('n_matched')} with_delta={card.meta.get('n_with_delta')} "
+            f"expiries={card.meta.get('n_expiries')}"
+        )
     lines.append("")
     lines.append("=== Overall (0–10) ===")
     ranked = sorted(card.overall.items(), key=lambda kv: -kv[1])

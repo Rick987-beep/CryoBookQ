@@ -88,8 +88,9 @@ case "$MODE" in
       RSYNC_SSH="$RSYNC_SSH -i $SSH_KEY"
     fi
     rsync -az --delete \
-      --exclude '.env' --exclude 'data/' --exclude '.venv' --exclude '.git' \
+      --exclude '.env' --exclude 'data/' --exclude 'logs/' --exclude '.venv' --exclude '.git' \
       --exclude 'tmp/' --exclude '__pycache__' --exclude '.pytest_cache' \
+      --exclude 'reports/' \
       -e "$RSYNC_SSH" \
       ./ "${REMOTE_SSH}:${REMOTE_PATH}/"
     ssh ${SSH_KEY:+-i "$SSH_KEY"} -o BatchMode=yes "$REMOTE_SSH" \

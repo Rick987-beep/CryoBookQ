@@ -2,8 +2,16 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
+import pandas as pd
+
 from cryobookq.analytics.scorecard import (
+    aggregate_scorecards,
     build_scorecard,
+    build_scorecard_period,
+    filter_raw_books,
+    hour_in_utc_window,
     lift_notional,
     nearest_expiry,
     relative_spread_pct,
@@ -152,3 +160,119 @@ def test_build_scorecard_ranks_tighter_spread() -> None:
     assert card.presence["per_venue"]["deribit"]["two_sided_rate"] == 1.0
     # At least some grid cells populated
     assert any(c["n_targets_used"] > 0 for c in card.grid.values())
+
+
+def test_cell_weights_favor_spread() -> None:
+    """Tighter spread with thin depth should beat wide spread with huge depth."""
+    from cryobookq.analytics.scorecard import CELL_WEIGHTS, contract_metrics
+
+    assert abs(sum(CELL_WEIGHTS.values()) - 1.0) < 1e-9
+    key = OptionKey("BTC", 1_700_000_000_000, 80_000.0, True)
+    tight = _book_row(
+        venue="deribit", key=key, delta=0.5, bid=100.0, ask=101.0, bid_sz=1.0, ask_sz=1.0
+    )
+    # Deep but wide
+    wide = _book_row(
+        venue="coincall",
+        key=key,
+        delta=0.5,
+        bid=90.0,
+        ask=120.0,
+        bid_sz=50.0,
+        ask_sz=50.0,
+        deeper=True,
+    )
+    # Patch sizes on tight so $10k still fails → size score 0; spread still strong
+    t = contract_metrics(tight, delta_label="50d")
+    w = contract_metrics(wide, delta_label="50d")
+    assert t["score_spread"] > w["score_spread"]
+    assert t["score"] > w["score"]
+
+
+def test_hour_window_and_filter() -> None:
+    assert hour_in_utc_window(12, 12, 18)
+    assert not hour_in_utc_window(18, 12, 18)
+    assert hour_in_utc_window(23, 22, 6)
+    assert hour_in_utc_window(3, 22, 6)
+    assert not hour_in_utc_window(12, 22, 6)
+
+    ts_a = int(datetime(2026, 8, 27, 15, 0, tzinfo=UTC).timestamp() * 1000)
+    ts_b = int(datetime(2026, 8, 27, 10, 0, tzinfo=UTC).timestamp() * 1000)
+    df = pd.DataFrame({"ts": [ts_a, ts_a, ts_b, ts_b], "x": [1, 2, 3, 4]})
+    f = filter_raw_books(df, utc_hour_start=12, utc_hour_end=18)
+    assert set(f["ts"].unique()) == {ts_a}
+
+
+def test_aggregate_scorecards_means_overall() -> None:
+    ts = 1_700_000_000_000
+    targets = [1.0, 2.0, 7.0, 14.0, 21.0, 60.0, 90.0, 120.0]
+    pairs: list[MatchedPair] = []
+    for dte in targets:
+        exp = _exp_ms(dte, ts)
+        for is_call, delta in [(True, 0.50), (False, -0.50)]:
+            key = OptionKey("BTC", exp, 80_000.0 + (1 if is_call else 0), is_call)
+            d_row = _book_row(
+                venue="deribit",
+                key=key,
+                delta=delta,
+                bid=200.0,
+                ask=204.0,
+                bid_sz=30.0,
+                ask_sz=30.0,
+                deeper=True,
+            )
+            c_row = _book_row(
+                venue="coincall",
+                key=key,
+                delta=delta,
+                bid=190.0,
+                ask=220.0,
+                bid_sz=5.0,
+                ask_sz=5.0,
+                deeper=True,
+            )
+            pairs.append(MatchedPair(key=key, deribit=d_row, coincall=c_row))
+
+    c1 = build_scorecard(pairs, ts_ms=ts)
+    c2 = build_scorecard(pairs, ts_ms=ts + 15_000)
+    agg = aggregate_scorecards([c1, c2])
+    assert agg.meta["n_snapshots"] == 2
+    assert abs(agg.overall["deribit"] - c1.overall["deribit"]) < 1e-9
+    assert agg.meta.get("aggregated") is True
+
+
+def test_build_scorecard_period_from_raw_df() -> None:
+    ts0 = int(datetime(2026, 8, 27, 13, 0, tzinfo=UTC).timestamp() * 1000)
+    rows = []
+    for snap in range(3):
+        ts = ts0 + snap * 15_000
+        for dte in (1.0, 14.0, 90.0):
+            exp = ts + int(dte * 86400_000)
+            for is_call, delta in [(True, 0.5), (False, -0.5), (True, 0.25), (False, -0.25)]:
+                key = OptionKey("BTC", exp, 80_000.0 + (10 if is_call else 0) + dte, is_call)
+                for venue, bid, ask, sz in (
+                    ("deribit", 100.0, 104.0, 40.0),
+                    ("coincall", 98.0, 110.0, 5.0),
+                ):
+                    r = _book_row(
+                        venue=venue,
+                        key=key,
+                        delta=delta,
+                        bid=bid,
+                        ask=ask,
+                        bid_sz=sz,
+                        ask_sz=sz,
+                        deeper=True,
+                    )
+                    r["ts"] = ts
+                    rows.append(r)
+    df = pd.DataFrame(rows)
+    card = build_scorecard_period(df)
+    assert card.meta["n_snapshots"] == 3
+    card2 = build_scorecard_period(df, utc_hour_start=12, utc_hour_end=18)
+    assert card2.meta["n_snapshots"] == 3
+    try:
+        build_scorecard_period(df, utc_hour_start=0, utc_hour_end=6)
+        raise AssertionError("expected ValueError")
+    except ValueError:
+        pass

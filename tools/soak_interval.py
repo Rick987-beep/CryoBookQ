@@ -24,6 +24,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from cryobookq.analytics import summarize_snapshot, who_wins
+from cryobookq.analytics.scorecard import build_scorecard_from_store, format_scorecard
 from cryobookq.capture.clock import CLOCK
 from cryobookq.capture.scheduler import IntervalSlotTracker
 from cryobookq.capture.snapshot import run_snapshot
@@ -126,8 +127,27 @@ async def main() -> int:
 
     from cryobookq.pipeline.write import ParquetStore
 
-    df = ParquetStore(args.data_dir).load_pair_scores()
+    store = ParquetStore(args.data_dir)
+    df = store.load_pair_scores()
     summary = summarize_snapshot(df) if len(df) else {"n_rows": 0}
+
+    period_card = None
+    period_report = None
+    try:
+        period_card = build_scorecard_from_store(args.data_dir)
+        period_report = format_scorecard(period_card)
+        print(period_report)
+        print()
+        (args.data_dir / "scorecard_period.json").write_text(
+            json.dumps(period_card.to_dict(), indent=2, default=str)
+        )
+        from cryobookq.analytics.html_report import write_scorecard_html
+
+        html_path = write_scorecard_html(period_card, args.data_dir / "scorecard.html")
+        logger.info("Wrote HTML scorecard %s", html_path)
+    except ValueError as exc:
+        logger.warning("Period scorecard skipped: %s", exc)
+
     out = {
         "config": {
             "total_s": args.total,
@@ -141,6 +161,11 @@ async def main() -> int:
         "health": HEALTH.as_dict(),
         "per_slot": per,
         "aggregate": summary,
+        "scorecard_period": {
+            "overall": period_card.overall if period_card else None,
+            "meta": period_card.meta if period_card else None,
+            "n_snapshots": (period_card.meta.get("n_snapshots") if period_card else 0),
+        },
         "queries": {
             "composite": who_wins(df, metric="winner_composite").attrs.get("win_rate", {})
             if len(df)
@@ -154,8 +179,9 @@ async def main() -> int:
     out_path.write_text(json.dumps(out, indent=2, default=str))
     print(json.dumps(out, indent=2, default=str))
     logger.info("Wrote %s", out_path)
-    ok = all(p.get("wrote") and p.get("quality_ok") for p in per if "error" not in p)
-    return 0 if ok and per else 2
+    wrote_ok = all(p.get("wrote") and p.get("quality_ok") for p in per if "error" not in p)
+    scorecard_ok = period_card is not None and int(period_card.meta.get("n_snapshots") or 0) == n_slots
+    return 0 if wrote_ok and scorecard_ok and per else 2
 
 
 if __name__ == "__main__":
