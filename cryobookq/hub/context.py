@@ -4,21 +4,32 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 import urllib.error
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FutTimeout
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
+import pandas as pd
 
 from cryobookq.analytics.report.labels import VENUE_COLORS, venue_name
 from cryobookq.analytics.scorecard import (
     PREFERRED_VENUES,
     ScorecardResult,
-    build_scorecard_from_store,
+    aggregate_scorecards,
+    build_scorecards_from_raw,
 )
 from cryobookq.config import Settings, get_settings
 
 logger = logging.getLogger(__name__)
+
+_SCORECARD_CACHE: dict[str, tuple[float, ScorecardResult | None]] = {}
+_CACHE_TTL_S = 90.0
+_HUB_MAX_SNAPSHOT_FILES = 8
+_SCORECARD_TIMEOUT_S = 15.0
 
 
 def fetch_daemon_health(*, host: str = "127.0.0.1", port: int = 8091, timeout: float = 2.0) -> dict[str, Any]:
@@ -32,12 +43,49 @@ def fetch_daemon_health(*, host: str = "127.0.0.1", port: int = 8091, timeout: f
         return {"status": "unreachable", "error": str(exc)}
 
 
+def _recent_raw_paths(data_dir: Path, *, max_files: int = _HUB_MAX_SNAPSHOT_FILES) -> list[Path]:
+    root = Path(data_dir) / "raw_books"
+    if not root.is_dir():
+        return []
+    files = sorted(root.glob("date=*/part-*.parquet"))
+    return files[-max_files:]
+
+
 def _load_scorecard(data_dir: Path) -> ScorecardResult | None:
+    """Build scorecard from recent snapshots only (hub must stay fast)."""
+    key = str(Path(data_dir).resolve())
+    now = time.time()
+    cached = _SCORECARD_CACHE.get(key)
+    if cached and now - cached[0] < _CACHE_TTL_S:
+        return cached[1]
+
+    def _build() -> ScorecardResult | None:
+        paths = _recent_raw_paths(data_dir)
+        if not paths:
+            return None
+        df = pd.concat([pd.read_parquet(p) for p in paths], ignore_index=True)
+        if df.empty:
+            return None
+        cards = build_scorecards_from_raw(df)
+        if not cards:
+            return None
+        if len(cards) == 1:
+            return cards[0]
+        return aggregate_scorecards(cards)
+
+    card: ScorecardResult | None
     try:
-        return build_scorecard_from_store(data_dir)
-    except (ValueError, OSError) as exc:
-        logger.info("no scorecard from store: %s", exc)
-        return None
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            card = pool.submit(_build).result(timeout=_SCORECARD_TIMEOUT_S)
+    except FutTimeout:
+        logger.warning("scorecard build timed out for %s", data_dir)
+        card = None
+    except Exception as exc:
+        logger.info("scorecard build failed: %s", exc)
+        card = None
+
+    _SCORECARD_CACHE[key] = (now, card)
+    return card
 
 
 def _fmt_ts_ms(ts_ms: int | None) -> str:
@@ -184,7 +232,10 @@ def build_hub_context(
     elif n_snaps == 1:
         scorecard_note = f"Scores from 1 snapshot ({_fmt_ts_ms(card.ts_ms)})."
     elif n_snaps > 1:
-        scorecard_note = f"Scores aggregated over {n_snaps} snapshots in store."
+        scorecard_note = (
+            f"Scores aggregated over {n_snaps} recent snapshots "
+            f"(last {_HUB_MAX_SNAPSHOT_FILES} parquet files in store)."
+        )
 
     return {
         "title": "CryoBookQ",
