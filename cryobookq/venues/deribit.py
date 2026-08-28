@@ -100,6 +100,8 @@ class DeribitVenue:
         out: list[Instrument] = []
         for item in result:
             name = item.get("instrument_name") or ""
+            if "USDC" in name:
+                continue
             key = option_key_from_symbol(name, underlying=underlying)
             if key is None:
                 # Fall back to REST fields when name parse fails

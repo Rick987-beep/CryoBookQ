@@ -4,14 +4,20 @@ import json
 from pathlib import Path
 
 from cryobookq.types import BookL5
+from cryobookq.venues.binance import BinanceVenue, _parse_binance_sides
+from cryobookq.venues.bybit import BybitVenue, _parse_bybit_sides
 from cryobookq.venues.coincall import CoincallVenue, _extract_symbol, _parse_coincall_book
 from cryobookq.venues.deribit import DeribitVenue, _channel, _parse_book_sides, _ws_channel_depth
+from cryobookq.venues.okx import OkxVenue, _parse_okx_sides
 from cryobookq.venues.protocol import Venue
 
 
 def test_venues_satisfy_protocol() -> None:
     assert isinstance(DeribitVenue(), Venue)
     assert isinstance(CoincallVenue(), Venue)
+    assert isinstance(BybitVenue(), Venue)
+    assert isinstance(OkxVenue(), Venue)
+    assert isinstance(BinanceVenue(), Venue)
 
 
 def test_deribit_ws_depth_mapping() -> None:
@@ -51,6 +57,17 @@ def test_coincall_abbrev_parse() -> None:
 
 def test_coincall_symbol_name_field() -> None:
     assert _extract_symbol({"symbolName": "BTCUSD-03APR26-74000-C"}) == "BTCUSD-03APR26-74000-C"
+
+
+def test_bybit_okx_binance_side_parse() -> None:
+    b, a = _parse_bybit_sides({"b": [["1720", "2.64"]], "a": [["1730", "5.7"]]})
+    assert b[0] == (1720.0, 2.64)
+    assert a[0][0] == 1730.0
+    ob, oa = _parse_okx_sides({"bids": [["0.0215", "482", "0", "2"]], "asks": [["0.022", "10"]]})
+    assert ob[0][1] == 482.0
+    bb, ba = _parse_binance_sides({"b": [["1720", "5.88"]], "a": [["1725", "4.22"]]})
+    assert bb[0][0] == 1720.0
+    assert len(ba) == 1
 
 
 def test_fixture_sample_loads_if_present() -> None:

@@ -33,6 +33,11 @@ _MONTH_NUM_TO_NAME = {v: k for k, v in _MONTHS.items()}
 
 _DERIBIT_RE = re.compile(r"^([A-Z]+)-(\d{1,2})([A-Z]{3})(\d{2})-(\d+(?:\.\d+)?)-([CP])$")
 _COINCALL_RE = re.compile(r"^([A-Z]+)USD-(\d{2})([A-Z]{3})(\d{2})-(\d+(?:\.\d+)?)-([CP])$")
+_BYBIT_RE = re.compile(
+    r"^([A-Z]+)-(\d{1,2})([A-Z]{3})(\d{2})-(\d+(?:\.\d+)?)-([CP])-USDT$"
+)
+_BINANCE_RE = re.compile(r"^([A-Z]+)-(\d{6})-(\d+(?:\.\d+)?)-([CP])$")
+_OKX_RE = re.compile(r"^([A-Z]+)-USD-(\d{6})-(\d+(?:\.\d+)?)-([CP])$")
 
 
 def parse_deribit_symbol(symbol: str) -> dict[str, str] | None:
@@ -63,6 +68,54 @@ def parse_coincall_symbol(symbol: str) -> dict[str, str] | None:
     }
 
 
+def parse_bybit_symbol(symbol: str) -> dict[str, str] | None:
+    m = _BYBIT_RE.match(symbol)
+    if not m:
+        return None
+    return {
+        "underlying": m.group(1),
+        "day": m.group(2),
+        "month": m.group(3),
+        "year": m.group(4),
+        "strike": m.group(5),
+        "option_type": m.group(6),
+    }
+
+
+def parse_binance_symbol(symbol: str) -> dict[str, str] | None:
+    m = _BINANCE_RE.match(symbol)
+    if not m:
+        return None
+    ymd = m.group(2)
+    return {
+        "underlying": m.group(1),
+        "ymd": ymd,
+        "strike": m.group(3),
+        "option_type": m.group(4),
+    }
+
+
+def parse_okx_symbol(symbol: str) -> dict[str, str] | None:
+    m = _OKX_RE.match(symbol)
+    if not m:
+        return None
+    return {
+        "underlying": m.group(1),
+        "ymd": m.group(2),
+        "strike": m.group(3),
+        "option_type": m.group(4),
+    }
+
+
+def _expiry_from_ymd(ymd: str) -> datetime | None:
+    if len(ymd) != 6:
+        return None
+    year = 2000 + int(ymd[:2])
+    month = int(ymd[2:4])
+    day = int(ymd[4:6])
+    return datetime(year, month, day, _EXPIRY_HOUR_UTC, 0, 0, tzinfo=UTC)
+
+
 def coincall_to_deribit(symbol: str) -> str | None:
     m = _COINCALL_RE.match(symbol)
     if not m:
@@ -83,21 +136,30 @@ def deribit_to_coincall(symbol: str) -> str | None:
 
 
 def option_expiry_utc(symbol: str) -> datetime | None:
-    """Expiry datetime (08:00 UTC) for Deribit or Coincall option symbol."""
-    m = _COINCALL_RE.match(symbol) or _DERIBIT_RE.match(symbol)
-    if not m:
-        return None
-    day = int(m.group(2))
-    month = _MONTHS.get(m.group(3).upper())
-    year = 2000 + int(m.group(4))
-    if not month:
-        return None
-    return datetime(year, month, day, _EXPIRY_HOUR_UTC, 0, 0, tzinfo=UTC)
+    """Expiry datetime (08:00 UTC) for supported option symbols."""
+    m = _COINCALL_RE.match(symbol) or _DERIBIT_RE.match(symbol) or _BYBIT_RE.match(symbol)
+    if m:
+        day = int(m.group(2))
+        month = _MONTHS.get(m.group(3).upper())
+        year = 2000 + int(m.group(4))
+        if not month:
+            return None
+        return datetime(year, month, day, _EXPIRY_HOUR_UTC, 0, 0, tzinfo=UTC)
+    p = parse_binance_symbol(symbol) or parse_okx_symbol(symbol)
+    if p:
+        return _expiry_from_ymd(p["ymd"])
+    return None
 
 
 def option_key_from_symbol(symbol: str, underlying: str | None = None) -> OptionKey | None:
-    """Build OptionKey from either venue's symbol string."""
-    parts = parse_coincall_symbol(symbol) or parse_deribit_symbol(symbol)
+    """Build OptionKey from a venue option symbol string."""
+    parts = (
+        parse_coincall_symbol(symbol)
+        or parse_deribit_symbol(symbol)
+        or parse_bybit_symbol(symbol)
+        or parse_binance_symbol(symbol)
+        or parse_okx_symbol(symbol)
+    )
     if not parts:
         return None
     exp = option_expiry_utc(symbol)

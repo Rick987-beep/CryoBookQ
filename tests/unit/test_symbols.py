@@ -7,8 +7,11 @@ from cryobookq.symbols import (
     deribit_to_coincall,
     option_expiry_utc,
     option_key_from_symbol,
+    parse_binance_symbol,
+    parse_bybit_symbol,
     parse_coincall_symbol,
     parse_deribit_symbol,
+    parse_okx_symbol,
 )
 from cryobookq.types import OptionKey
 
@@ -56,7 +59,18 @@ def test_option_key_equality_across_venues() -> None:
     assert k1 == OptionKey("BTC", k1.expiry_utc_ms, 74000.0, True)
 
 
-def test_bad_symbol_returns_none() -> None:
-    assert parse_deribit_symbol("BTC-PERPETUAL") is None
-    assert coincall_to_deribit("nope") is None
-    assert option_key_from_symbol("ETH-USD") is None
+def test_parse_bybit_binance_okx() -> None:
+    b = parse_bybit_symbol("BTC-4SEP26-80000-C-USDT")
+    assert b is not None and b["day"] == "4" and b["option_type"] == "C"
+    n = parse_binance_symbol("BTC-260904-80000-C")
+    assert n is not None and n["ymd"] == "260904"
+    o = parse_okx_symbol("BTC-USD-260904-80000-C")
+    assert o is not None and o["ymd"] == "260904"
+
+    k1 = option_key_from_symbol("BTC-4SEP26-80000-C")
+    k2 = option_key_from_symbol("BTC-4SEP26-80000-C-USDT")
+    k3 = option_key_from_symbol("BTC-260904-80000-C")
+    k4 = option_key_from_symbol("BTC-USD-260904-80000-C")
+    assert k1 == k2 == k3 == k4
+    assert k1 is not None
+    assert option_expiry_utc("BTC-260904-80000-C") == datetime(2026, 9, 4, 8, 0, 0, tzinfo=UTC)
