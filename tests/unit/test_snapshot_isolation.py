@@ -67,3 +67,47 @@ async def test_hanging_venue_does_not_block_hub(tmp_path: Path, monkeypatch: pyt
     assert elapsed < 2.0, f"hang leaked, elapsed={elapsed:.2f}s"
     assert "bybit" in (result.quality.venue_errors if result.quality else {})
     assert any(r["venue"] == "deribit" for r in result.raw_rows)
+
+
+class _HangBinance:
+    name = "binance"
+
+    def list_instruments(self, underlying: str) -> list[Instrument]:
+        key = OptionKey("BTC", 1_800_000_000_000, 80_000.0, True)
+        return [Instrument("binance", "BTC-HANG", key)]
+
+    async def burst_books(self, symbols, depth=5, deadline=None, duration_s=None):
+        await asyncio.sleep(3600)
+        return {}, BurstStats("binance", 1, 0, 0.0, 0.0)
+
+
+@pytest.mark.asyncio
+async def test_binance_timeout_does_not_use_peer_budget(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from cryobookq.capture.snapshot import run_snapshot
+
+    def factory(name: str, settings=None):
+        if name == "binance":
+            return _HangBinance()
+        return _HubVenue()
+
+    monkeypatch.setattr("cryobookq.capture.snapshot.make_venue", factory)
+    monkeypatch.setattr("cryobookq.capture.snapshot.fetch_btc_index", lambda: 80_000.0)
+
+    settings = Settings(
+        data_dir=tmp_path,
+        burst_timeout_s=10.0,
+        binance_timeout_s=0.4,
+        binance_collect_s=0.1,
+    )
+    t0 = time.perf_counter()
+    result = await run_snapshot(
+        ["deribit", "binance"],
+        settings=settings,
+        duration_s=0.1,
+        write=True,
+        force_write=True,
+    )
+    elapsed = time.perf_counter() - t0
+    assert elapsed < 2.0, f"binance hang used peer timeout, elapsed={elapsed:.2f}s"
+    assert "binance" in (result.quality.venue_errors if result.quality else {})
+    assert any(r["venue"] == "deribit" for r in result.raw_rows)

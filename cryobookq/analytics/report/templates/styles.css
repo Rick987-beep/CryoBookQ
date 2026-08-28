@@ -51,6 +51,8 @@ p.explain, .explain {
   color: var(--muted);
   margin: 0 0 1rem;
 }
+.explain p { margin: 0 0 0.65rem; }
+.explain p:last-child { margin-bottom: 0; }
 .score-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -108,6 +110,7 @@ tbody th { font-weight: 600; background: #eef1f4; white-space: nowrap; }
 td.num { text-align: right; font-variant-numeric: tabular-nums; }
 td.best { background: #e8f3ee; font-weight: 600; }
 td.score { font-weight: 600; }
+tr.total th, tr.total td { border-top: 2px solid var(--ink); font-weight: 600; }
 .muted { color: var(--muted); font-weight: 400; }
 .reading {
   background: var(--card);
@@ -116,6 +119,8 @@ td.score { font-weight: 600; }
   margin: 1rem 0 1.5rem;
   font-size: 1.02rem;
 }
+.reading p { margin: 0 0 0.7rem; }
+.reading p:last-child { margin-bottom: 0; }
 dl.method {
   font-family: "IBM Plex Sans", sans-serif;
   font-size: 0.9rem;

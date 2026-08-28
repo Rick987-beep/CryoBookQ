@@ -18,7 +18,7 @@ import websockets.exceptions
 from cryobookq.config import Settings, get_settings
 from cryobookq.symbols import option_key_from_symbol
 from cryobookq.types import BookL5, Instrument, OptionKey, pad_levels
-from cryobookq.venues._util import BurstStats, Timer, peak_rss_mb
+from cryobookq.venues._util import BurstStats, CatalogueTracker, Timer, peak_rss_mb, track_catalogue
 
 logger = logging.getLogger(__name__)
 
@@ -227,62 +227,64 @@ class CoincallVenue:
                 notes.append(f"collect_until_unix={deadline_ts:.3f}")
 
                 last_hb = time.time()
-                while time.time() < deadline_ts:
-                    remaining = deadline_ts - time.time()
-                    if remaining <= 0:
-                        break
-                    # Heartbeat every 3s
-                    if time.time() - last_hb >= 3.0:
-                        try:
-                            await ws.send(json.dumps({"action": "heartbeat"}))
-                        except Exception as exc:  # noqa: BLE001
-                            errors.append(f"heartbeat:{exc}")
+                cat = CatalogueTracker(self.name, len(symbols), books, notes, t_start)
+                async with track_catalogue(cat, deadline_ts):
+                    while time.time() < deadline_ts:
+                        remaining = deadline_ts - time.time()
+                        if remaining <= 0:
                             break
-                        last_hb = time.time()
-                    try:
-                        raw = await asyncio.wait_for(ws.recv(), timeout=min(1.0, remaining))
-                    except TimeoutError:
-                        continue
-                    except websockets.exceptions.ConnectionClosed as exc:
-                        errors.append(f"ws_closed:{exc}")
-                        break
+                        # Heartbeat every 3s
+                        if time.time() - last_hb >= 3.0:
+                            try:
+                                await ws.send(json.dumps({"action": "heartbeat"}))
+                            except Exception as exc:  # noqa: BLE001
+                                errors.append(f"heartbeat:{exc}")
+                                break
+                            last_hb = time.time()
+                        try:
+                            raw = await asyncio.wait_for(ws.recv(), timeout=min(1.0, remaining))
+                        except TimeoutError:
+                            continue
+                        except websockets.exceptions.ConnectionClosed as exc:
+                            errors.append(f"ws_closed:{exc}")
+                            break
 
-                    try:
-                        msg = json.loads(raw)
-                    except json.JSONDecodeError:
-                        continue
+                        try:
+                            msg = json.loads(raw)
+                        except json.JSONDecodeError:
+                            continue
 
-                    if msg.get("result") == "failed":
-                        errors.append(str(msg)[:200])
-                        continue
+                        if msg.get("result") == "failed":
+                            errors.append(str(msg)[:200])
+                            continue
 
-                    data = msg.get("d") if isinstance(msg.get("d"), dict) else None
-                    if data is None and isinstance(msg.get("data"), dict):
-                        data = msg["data"]
-                    if data is None and msg.get("dataType") == "orderBook":
-                        payload = msg.get("payload")
-                        data = payload if isinstance(payload, dict) else None
+                        data = msg.get("d") if isinstance(msg.get("d"), dict) else None
+                        if data is None and isinstance(msg.get("data"), dict):
+                            data = msg["data"]
+                        if data is None and msg.get("dataType") == "orderBook":
+                            payload = msg.get("payload")
+                            data = payload if isinstance(payload, dict) else None
 
-                    if not isinstance(data, dict):
-                        continue
-                    symbol = data.get("s") or data.get("symbol")
-                    if not symbol:
-                        continue
-                    symbol = str(symbol)
-                    if symbol not in keys:
-                        continue
-                    bid_px, bid_sz, ask_px, ask_sz = _parse_coincall_book(data, depth)
-                    ts = data.get("ts")
-                    books[symbol] = BookL5(
-                        venue=self.name,
-                        venue_symbol=symbol,
-                        key=keys.get(symbol),
-                        ts_exchange_ms=int(ts) if ts is not None else None,
-                        bid_px=bid_px,
-                        bid_sz=bid_sz,
-                        ask_px=ask_px,
-                        ask_sz=ask_sz,
-                    )
+                        if not isinstance(data, dict):
+                            continue
+                        symbol = data.get("s") or data.get("symbol")
+                        if not symbol:
+                            continue
+                        symbol = str(symbol)
+                        if symbol not in keys:
+                            continue
+                        bid_px, bid_sz, ask_px, ask_sz = _parse_coincall_book(data, depth)
+                        ts = data.get("ts")
+                        books[symbol] = BookL5(
+                            venue=self.name,
+                            venue_symbol=symbol,
+                            key=keys.get(symbol),
+                            ts_exchange_ms=int(ts) if ts is not None else None,
+                            bid_px=bid_px,
+                            bid_sz=bid_sz,
+                            ask_px=ask_px,
+                            ask_sz=ask_sz,
+                        )
 
                 # Unsubscribe batches
                 try:

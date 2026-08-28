@@ -3,8 +3,9 @@
 Subjects
 --------
 * **3×3 grid** — tenors short / mid / far × |Δ| targets 50δ / 25δ / 7.5δ
-* **Wings** — same tenors at |Δ| ≈ 2.5δ
-* **Presence** — two-sided rate among matched options with |Δ| ≥ 0.05
+* **Wings** — same tenors at |Δ| ≈ 2.5δ (Total = equal-weight mean)
+* **Presence** — two-sided rate among hub options with |Δ| ≥ 0.05
+* **Catalogue** — hub coverage count + liquidity-gated extras vs hub (not in Overall)
 
 Tenor targets (nearest listed expiry, then average):
 * short: 1d, 2d
@@ -87,6 +88,19 @@ OVERALL_WEIGHTS = {
     "grid": 0.60,
     "wings": 0.20,
     "presence": 0.20,
+}
+
+HUB_VENUE = "deribit"
+PREFERRED_VENUES = ["deribit", "coincall", "bybit", "okx", "binance"]
+ALWAYS_SCORE_VENUES = frozenset({"binance"})
+
+# Catalogue (separate from Overall). Hub coverage is a count, not a rate.
+CATALOGUE_HUB_N_REF = 800.0
+CATALOGUE_DEPTH_REF_USD = 2_000.0
+CATALOGUE_EXTRAS_MASS_REF = 40.0
+CATALOGUE_WEIGHTS = {
+    "hub_coverage": 0.60,
+    "extras": 0.40,
 }
 
 # Within each landmark cell: spread dominates (small-ticket quote quality);
@@ -363,16 +377,112 @@ def _avg_call_put(
     return per_venue
 
 
-def _venues_from_pairs(pairs: list[MatchedContract]) -> list[str]:
+def _venues_from_pairs(
+    pairs: list[MatchedContract],
+    *,
+    ensure: list[str] | None = None,
+) -> list[str]:
     found: set[str] = set()
     for p in pairs:
         for name, row in p.books.items():
             if row is not None:
                 found.add(str(name))
-    preferred = ["deribit", "coincall", "bybit", "okx", "binance"]
-    out = [v for v in preferred if v in found]
+    found |= ALWAYS_SCORE_VENUES
+    if ensure:
+        found |= {v.strip().lower() for v in ensure if v.strip()}
+    out = [v for v in PREFERRED_VENUES if v in found]
     out.extend(sorted(found - set(out)))
     return out or ["deribit", "coincall"]
+
+
+def capture_summary_from_stats(stats: dict[str, Any]) -> dict[str, Any]:
+    """Summarize per-venue burst stats for scorecard / HTML capture notes."""
+    interest = (
+        "rest_429",
+        "rest_weight",
+        "rest_time_stop",
+        "ticker_fill",
+        "ticker_skipped",
+        "ticker_http",
+        "429",
+        "sampler=slow",
+        "ws_conns",
+        "venue_exception",
+        "missing_",
+        "coverage_below",
+        "ws_closed",
+    )
+    out: dict[str, Any] = {}
+    for v in PREFERRED_VENUES:
+        st = stats.get(v)
+        if not isinstance(st, dict):
+            continue
+        notes = [str(n) for n in (st.get("notes") or [])]
+        errors = [str(e) for e in (st.get("subscribe_errors") or [])]
+        flags: list[str] = []
+        if st.get("error"):
+            flags.append(str(st["error"]))
+        for n in notes:
+            if any(k in n for k in interest):
+                flags.append(n)
+        for e in errors[:3]:
+            if e not in flags:
+                flags.append(e)
+        out[v] = {
+            "coverage": st.get("coverage"),
+            "n_instruments": st.get("n_instruments"),
+            "n_with_update": st.get("n_with_update"),
+            "duration_s": st.get("duration_s"),
+            "flags": flags,
+            "notes": notes,
+            "errors": errors[:5],
+        }
+    return out
+
+
+def _merge_capture_meta(cards: list[ScorecardResult]) -> dict[str, Any]:
+    """Mean coverage / union flags across snapshots for period reports."""
+    snaps = [(c.meta.get("capture") or {}) for c in cards]
+    return merge_capture_snapshots(snaps)
+
+
+def merge_capture_snapshots(snapshots: list[dict[str, Any]]) -> dict[str, Any]:
+    """Merge per-snapshot capture summaries (from scorecard meta or slot logs)."""
+    merged: dict[str, Any] = {}
+    for v in PREFERRED_VENUES:
+        covs: list[float] = []
+        durs: list[float] = []
+        flags: set[str] = set()
+        n_inst: list[int] = []
+        n_up: list[int] = []
+        n_seen = 0
+        for snap in snapshots:
+            cap = snap.get(v) if isinstance(snap, dict) else None
+            if not cap:
+                continue
+            n_seen += 1
+            if cap.get("coverage") is not None:
+                covs.append(float(cap["coverage"]))
+            if cap.get("duration_s") is not None:
+                durs.append(float(cap["duration_s"]))
+            if cap.get("n_instruments") is not None:
+                n_inst.append(int(cap["n_instruments"]))
+            if cap.get("n_with_update") is not None:
+                n_up.append(int(cap["n_with_update"]))
+            flags.update(cap.get("flags") or [])
+        if not covs and not flags and not n_inst:
+            continue
+        merged[v] = {
+            "coverage_mean": round(_mean_scores(covs), 4) if covs else None,
+            "coverage": round(_mean_scores(covs), 4) if covs else None,
+            "duration_s_mean": round(_mean_scores(durs), 1) if durs else None,
+            "duration_s": round(_mean_scores(durs), 1) if durs else None,
+            "n_instruments": int(round(_mean_scores([float(x) for x in n_inst]))) if n_inst else None,
+            "n_with_update": int(round(_mean_scores([float(x) for x in n_up]))) if n_up else None,
+            "flags": sorted(flags),
+            "n_snapshots": n_seen,
+        }
+    return merged
 
 
 @dataclass
@@ -382,6 +492,7 @@ class ScorecardResult:
     grid: dict[str, Any] = field(default_factory=dict)
     wings: dict[str, Any] = field(default_factory=dict)
     presence: dict[str, Any] = field(default_factory=dict)
+    catalogue: dict[str, Any] = field(default_factory=dict)
     overall: dict[str, float] = field(default_factory=dict)
     landmarks: list[dict[str, Any]] = field(default_factory=list)
     meta: dict[str, Any] = field(default_factory=dict)
@@ -393,6 +504,7 @@ class ScorecardResult:
             "grid": self.grid,
             "wings": self.wings,
             "presence": self.presence,
+            "catalogue": self.catalogue,
             "overall": self.overall,
             "landmarks": self.landmarks,
             "meta": self.meta,
@@ -424,6 +536,69 @@ def presence_scores(pairs: list[MatchedContract], venues: list[str]) -> dict[str
             "n_two_sided": n_two,
             "two_sided_rate": rate,
             "score": 10.0 * rate,
+        }
+    return out
+
+
+def catalogue_scores(pairs: list[MatchedContract], venues: list[str]) -> dict[str, Any]:
+    """Tradable chain size: hub coverage (count) + liquidity-gated extras vs hub.
+
+    ``n_instruments`` is informational (captured books), not scored.
+    Deribit's extras are 0 by construction; its Catalogue equals hub coverage.
+    """
+    hub = _hub_pairs(pairs)
+    eligible = []
+    for p in hub:
+        ad = _pair_abs_delta(p)
+        if ad is not None and ad >= PRESENCE_MIN_ABS_DELTA:
+            eligible.append(p)
+    base = eligible or hub
+    n_eligible = len(base)
+    out: dict[str, Any] = {
+        "n_eligible_hub": n_eligible,
+        "refs": {
+            "hub_n": CATALOGUE_HUB_N_REF,
+            "depth_usd": CATALOGUE_DEPTH_REF_USD,
+            "extras_mass": CATALOGUE_EXTRAS_MASS_REF,
+            "weights": dict(CATALOGUE_WEIGHTS),
+        },
+        "per_venue": {},
+    }
+    for v in venues:
+        n_instruments = sum(1 for p in pairs if _row_for_venue(p, v) is not None)
+        n_hub_two = 0
+        for p in base:
+            row = _row_for_venue(p, v)
+            if row is not None and venue_metrics(row)["two_sided"]:
+                n_hub_two += 1
+        hub_score = score_higher_better(float(n_hub_two), CATALOGUE_HUB_N_REF)
+
+        n_extras = 0
+        extras_mass = 0.0
+        for p in pairs:
+            row = _row_for_venue(p, v)
+            if row is None or not venue_metrics(row)["two_sided"]:
+                continue
+            d_row = p.deribit
+            if d_row is not None and venue_metrics(d_row)["two_sided"]:
+                continue
+            n_extras += 1
+            depth = depth_usd(row) or 0.0
+            extras_mass += min(1.0, depth / CATALOGUE_DEPTH_REF_USD)
+        extras_score = score_higher_better(extras_mass, CATALOGUE_EXTRAS_MASS_REF)
+        w = CATALOGUE_WEIGHTS
+        if v == HUB_VENUE:
+            score = hub_score
+        else:
+            score = w["hub_coverage"] * hub_score + w["extras"] * extras_score
+        out["per_venue"][v] = {
+            "n_instruments": n_instruments,
+            "n_hub_two_sided": n_hub_two,
+            "hub_coverage_score": hub_score,
+            "n_extras": n_extras,
+            "extras_mass": extras_mass,
+            "extras_score": extras_score,
+            "score": score,
         }
     return out
 
@@ -511,8 +686,14 @@ def _cell_for_tenor_delta(
     return cell
 
 
-def build_scorecard(pairs: list[MatchedContract], *, ts_ms: int) -> ScorecardResult:
-    venues = _venues_from_pairs(pairs)
+def build_scorecard(
+    pairs: list[MatchedContract],
+    *,
+    ts_ms: int,
+    ensure_venues: list[str] | None = None,
+    capture: dict[str, Any] | None = None,
+) -> ScorecardResult:
+    venues = _venues_from_pairs(pairs, ensure=ensure_venues)
     matched = _hub_pairs(pairs)
     expiries = _expiries(matched, ts_ms)
     landmarks: list[dict[str, Any]] = []
@@ -554,6 +735,7 @@ def build_scorecard(pairs: list[MatchedContract], *, ts_ms: int) -> ScorecardRes
             wing_scores[v].append(float(cell["venues"][v]["score"]))
 
     presence = presence_scores(matched, venues)
+    catalogue = catalogue_scores(pairs, venues)
 
     overall: dict[str, float] = {}
     for v in venues:
@@ -573,6 +755,7 @@ def build_scorecard(pairs: list[MatchedContract], *, ts_ms: int) -> ScorecardRes
         grid=grid_cells,
         wings=wing_cells,
         presence=presence,
+        catalogue=catalogue,
         overall=overall,
         landmarks=landmarks,
         meta={
@@ -586,6 +769,7 @@ def build_scorecard(pairs: list[MatchedContract], *, ts_ms: int) -> ScorecardRes
             "tenor_targets": {k: list(v) for k, v in TENOR_TARGETS.items()},
             "delta_targets": dict(DELTA_TARGETS),
             "wing_delta": WING_DELTA,
+            "capture": capture or {},
         },
     )
 
@@ -661,10 +845,14 @@ def aggregate_scorecards(cards: list[ScorecardResult]) -> ScorecardResult:
     if len(cards) == 1:
         return cards[0]
 
-    preferred = ["deribit", "coincall", "bybit", "okx", "binance"]
-    found: set[str] = set()
+    preferred = list(PREFERRED_VENUES)
+    found: set[str] = set(ALWAYS_SCORE_VENUES)
     for c in cards:
         found.update(c.venues)
+        for cap in (c.meta.get("capture") or {}).values():
+            if isinstance(cap, dict) and cap.get("flags"):
+                pass  # capture keys imply venue attempted
+        found.update((c.meta.get("capture") or {}).keys())
     venues = [v for v in preferred if v in found] + sorted(found - set(preferred))
 
     def _agg_block(getter) -> dict[str, Any]:
@@ -718,6 +906,39 @@ def aggregate_scorecards(cards: list[ScorecardResult]) -> ScorecardResult:
             "score": _mean_scores(scores) if scores else 0.0,
         }
 
+    catalogue: dict[str, Any] = {"n_eligible_hub": 0, "refs": dict(cards[0].catalogue.get("refs") or {}), "per_venue": {}}
+    elig_c = [int((c.catalogue or {}).get("n_eligible_hub") or 0) for c in cards]
+    catalogue["n_eligible_hub"] = int(round(_mean_scores([float(x) for x in elig_c]))) if elig_c else 0
+    if not catalogue["refs"]:
+        catalogue["refs"] = {
+            "hub_n": CATALOGUE_HUB_N_REF,
+            "depth_usd": CATALOGUE_DEPTH_REF_USD,
+            "extras_mass": CATALOGUE_EXTRAS_MASS_REF,
+            "weights": dict(CATALOGUE_WEIGHTS),
+        }
+    for v in venues:
+        inst, n_hub, hub_s, n_ex, mass, ex_s, cat_s = [], [], [], [], [], [], []
+        for c in cards:
+            pv = (c.catalogue.get("per_venue") or {}).get(v)
+            if not pv:
+                continue
+            inst.append(float(pv.get("n_instruments") or 0))
+            n_hub.append(float(pv.get("n_hub_two_sided") or 0))
+            hub_s.append(float(pv.get("hub_coverage_score") or 0))
+            n_ex.append(float(pv.get("n_extras") or 0))
+            mass.append(float(pv.get("extras_mass") or 0))
+            ex_s.append(float(pv.get("extras_score") or 0))
+            cat_s.append(float(pv.get("score") or 0))
+        catalogue["per_venue"][v] = {
+            "n_instruments": int(round(_mean_scores(inst))) if inst else 0,
+            "n_hub_two_sided": int(round(_mean_scores(n_hub))) if n_hub else 0,
+            "hub_coverage_score": _mean_scores(hub_s) if hub_s else 0.0,
+            "n_extras": int(round(_mean_scores(n_ex))) if n_ex else 0,
+            "extras_mass": _mean_scores(mass) if mass else 0.0,
+            "extras_score": _mean_scores(ex_s) if ex_s else 0.0,
+            "score": _mean_scores(cat_s) if cat_s else 0.0,
+        }
+
     overall = {
         v: _mean_scores([float(c.overall[v]) for c in cards if v in c.overall]) for v in venues
     }
@@ -729,6 +950,7 @@ def aggregate_scorecards(cards: list[ScorecardResult]) -> ScorecardResult:
         grid=grid,
         wings=wings,
         presence=presence,
+        catalogue=catalogue,
         overall=overall,
         landmarks=[],
         meta={
@@ -745,6 +967,7 @@ def aggregate_scorecards(cards: list[ScorecardResult]) -> ScorecardResult:
             "weights": dict(OVERALL_WEIGHTS),
             "cell_weights": dict(CELL_WEIGHTS),
             "aggregated": True,
+            "capture": _merge_capture_meta(cards),
         },
     )
 
@@ -903,6 +1126,25 @@ def format_scorecard(card: ScorecardResult) -> str:
             m = cell["venues"][v]
             parts.append(f"{v}={m['score']:.1f}(spr {_fmt(m['spread_pct'], 5, '%')})")
         lines.append("  ".join(parts))
+    wing_tot = ["Total           "]
+    for v in card.venues:
+        ws = [
+            float(card.wings[f"{t}:{WING_LABEL}"]["venues"][v]["score"]) for t in TENOR_TARGETS
+        ]
+        wing_tot.append(f"{v}={_mean_scores(ws):.1f}")
+    lines.append("  ".join(wing_tot))
+    lines.append("")
+    lines.append("=== Catalogue (not in Overall) ===")
+    for v in card.venues:
+        pv = (card.catalogue.get("per_venue") or {}).get(v) or {}
+        lines.append(
+            f"  {v:12s}  instruments={pv.get('n_instruments', 0)}  "
+            f"hub_two={pv.get('n_hub_two_sided', 0)}  "
+            f"hub={float(pv.get('hub_coverage_score') or 0):.2f}  "
+            f"extras_n={pv.get('n_extras', 0)}  "
+            f"extras={float(pv.get('extras_score') or 0):.2f}  "
+            f"catalogue={float(pv.get('score') or 0):.2f}"
+        )
     lines.append("")
     lines.append("=== Subject means ===")
     for v in card.venues:

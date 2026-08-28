@@ -14,7 +14,15 @@ import websockets
 
 from cryobookq.symbols import option_key_from_symbol
 from cryobookq.types import BookL5, Instrument
-from cryobookq.venues._util import BurstStats, Timer, book_from_levels, peak_rss_mb, resolve_deadline_ts
+from cryobookq.venues._util import (
+    BurstStats,
+    CatalogueTracker,
+    Timer,
+    book_from_levels,
+    peak_rss_mb,
+    resolve_deadline_ts,
+    track_catalogue,
+)
 from cryobookq.venues.spec import spec_from_instrument
 
 logger = logging.getLogger(__name__)
@@ -93,41 +101,43 @@ class OkxVenue:
                     args = [{"channel": "books5", "instId": s} for s in batch]
                     await ws.send(json.dumps({"op": "subscribe", "args": args}))
                 notes.append(f"subscribed={len(symbols)}")
-                while time.time() < deadline_ts:
-                    remaining = deadline_ts - time.time()
-                    if remaining <= 0:
-                        break
-                    try:
-                        raw = await asyncio.wait_for(ws.recv(), timeout=min(remaining, 2.0))
-                    except TimeoutError:
-                        continue
-                    try:
-                        msg = json.loads(raw)
-                    except json.JSONDecodeError:
-                        continue
-                    arg = msg.get("arg") or {}
-                    if arg.get("channel") != "books5":
-                        continue
-                    payload = msg.get("data") or []
-                    if not payload:
-                        continue
-                    data = payload[0]
-                    sym = arg.get("instId") or data.get("instId")
-                    if not sym:
-                        continue
-                    bids, asks = _parse_okx_sides(data)
-                    ts_raw = data.get("ts")
-                    ts_ms = int(ts_raw) if ts_raw else None
-                    books[sym] = book_from_levels(
-                        self.name,
-                        sym,
-                        keys.get(sym),
-                        bids,
-                        asks,
-                        depth,
-                        size_to_btc=self._size_to_btc.get(sym, 0.01),
-                        ts_exchange_ms=ts_ms,
-                    )
+                cat = CatalogueTracker(self.name, len(symbols), books, notes, t_start)
+                async with track_catalogue(cat, deadline_ts):
+                    while time.time() < deadline_ts:
+                        remaining = deadline_ts - time.time()
+                        if remaining <= 0:
+                            break
+                        try:
+                            raw = await asyncio.wait_for(ws.recv(), timeout=min(remaining, 2.0))
+                        except TimeoutError:
+                            continue
+                        try:
+                            msg = json.loads(raw)
+                        except json.JSONDecodeError:
+                            continue
+                        arg = msg.get("arg") or {}
+                        if arg.get("channel") != "books5":
+                            continue
+                        payload = msg.get("data") or []
+                        if not payload:
+                            continue
+                        data = payload[0]
+                        sym = arg.get("instId") or data.get("instId")
+                        if not sym:
+                            continue
+                        bids, asks = _parse_okx_sides(data)
+                        ts_raw = data.get("ts")
+                        ts_ms = int(ts_raw) if ts_raw else None
+                        books[sym] = book_from_levels(
+                            self.name,
+                            sym,
+                            keys.get(sym),
+                            bids,
+                            asks,
+                            depth,
+                            size_to_btc=self._size_to_btc.get(sym, 0.01),
+                            ts_exchange_ms=ts_ms,
+                        )
         except Exception as exc:  # noqa: BLE001
             logger.exception("OKX burst failed")
             errors.append(f"{type(exc).__name__}:{exc}")

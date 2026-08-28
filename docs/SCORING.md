@@ -65,6 +65,22 @@ Presence = `10 × two_sided_rate`.
 
 **Overall** = `0.60×grid + 0.20×wings + 0.20×presence`.
 
+Wings table **Total** = equal-weight mean of the three tenor 2.5Δ scores (same number as the wings component).
+
+## Catalogue (separate — not in Overall)
+
+Tradable chain size. Instrument **count is shown but not scored**.
+
+| Row | Definition | 0–10 map |
+|-----|------------|----------|
+| **Hub coverage** | Two-sided count among Deribit-listed names with \|Δ\| ≥ 0.05 | `10 × clamp(n / 800, 0, 1)` |
+| **Extras** | Two-sided names this venue quotes that **Deribit does not** quote two-sided. Each name contributes `min(1, depth_usd / 2000)` | `10 × clamp(mass / 40, 0, 1)` |
+
+Other venues: Catalogue = `0.60×hub_coverage + 0.40×extras`.  
+Deribit’s extras are 0 by construction; its Catalogue **equals hub coverage**.
+
+Empty unique listings do not add extras mass. Missing a peer does not change Deribit’s Catalogue.
+
 ## Deltas
 
 WS books lack greeks. Snapshot enrichment uses Deribit `get_book_summary_by_currency` + forward BS delta from mark IV (attached to both venues’ matched rows by `OptionKey`).

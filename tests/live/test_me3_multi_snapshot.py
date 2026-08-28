@@ -36,6 +36,10 @@ async def test_me3_multi_snapshot(tmp_path: Path) -> None:
         coverage_floor_okx=0.30,
         coverage_floor_binance=0.30,
         burst_timeout_s=40.0,
+        ws_collect_s=12.0,
+        binance_collect_s=12.0,
+        binance_rest_budget_s=15.0,
+        binance_timeout_s=40.0,
     )
     venues = ["deribit", "bybit", "okx", "binance"]
     t0 = time.perf_counter()

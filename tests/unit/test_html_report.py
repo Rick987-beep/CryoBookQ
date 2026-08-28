@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from cryobookq.analytics.report import copy as report_copy
 from cryobookq.analytics.html_report import (
     build_executive_summary,
     render_scorecard_html,
@@ -64,6 +65,7 @@ def _mini_card(*, include_bybit: bool = True):
 
 
 def test_html_contains_sections_and_venues() -> None:
+    report_copy.load_copy.cache_clear()
     card = _mini_card()
     doc = render_scorecard_html(card)
     assert "Comparison Scorecard" in doc
@@ -73,10 +75,19 @@ def test_html_contains_sections_and_venues() -> None:
     assert "Deribit-listed" in doc or "hub" in doc.lower()
     assert "on both venues" not in doc
     assert "matched pair" not in doc.lower()
-    assert "Overall index" in doc
-    assert "Presence" in doc
-    assert "Liquidity grid" in doc
-    assert "Wings" in doc
+    assert "1. Overall index" in doc
+    assert "2. Component summary" in doc
+    assert "3. Executive Summary" in doc
+    assert "4. Presence" in doc
+    assert "5. Liquidity grid" in doc
+    assert "6. Wings" in doc
+    assert "7. Catalogue" in doc
+    assert "8. Capture quality" in doc
+    assert "9. Methodology" in doc
+    assert "\u2014" not in doc
+    assert ">Total<" in doc
+    assert "Catalogue" in doc
+    assert "Instruments" in doc
     assert "Methodology" in doc
     assert "Executive Summary" in doc
     assert "Component summary" in doc
@@ -84,10 +95,18 @@ def test_html_contains_sections_and_venues() -> None:
 
 
 def test_executive_summary_mentions_leader() -> None:
+    from cryobookq.analytics.report.labels import venue_name
+
     card = _mini_card()
     text = build_executive_summary(card)
     assert "Deribit" in text
     assert "/ 10" in text
+    assert "\u2014" not in text
+    assert "--" not in text
+    for v in card.venues:
+        assert venue_name(v) in text
+    paras = [p for p in text.split("\n\n") if p.strip()]
+    assert len(paras) >= 2 + len(card.venues)
 
 
 def test_html_missing_venue_does_not_drop_deribit() -> None:
@@ -104,4 +123,8 @@ def test_roundtrip_dict() -> None:
     card = _mini_card()
     again = scorecard_from_dict(card.to_dict())
     assert again.overall["deribit"] == card.overall["deribit"]
+    assert again.catalogue["per_venue"]["deribit"]["n_instruments"] == (
+        card.catalogue["per_venue"]["deribit"]["n_instruments"]
+    )
     assert "Deribit" in render_scorecard_html(again)
+    assert "Catalogue" in render_scorecard_html(again)

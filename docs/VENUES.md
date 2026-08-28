@@ -44,11 +44,11 @@ Do not store size as dollars of BTC underlying (`sz_btc × index`).
 
 | Venue | Primary | Notes |
 |-------|---------|--------|
-| Deribit | WS `book.*.none.10.100ms` truncated to L5 | Public |
-| Coincall | WS `orderBook` batches of 100 | Signed URL |
-| Bybit | WS `orderbook.25.{symbol}` | Public |
-| OKX | WS `books5` | Public |
-| Binance | `wss://fstream.binance.com/eoptions/ws` `{sym.lower()}@depth10@100ms` + REST `depth?limit=10` fill | `nbstream` is 404. `exchangeInfo` retries on HTTP 429. |
+| Deribit | WS `book.*.none.10.100ms` truncated to L5 | Interval snapshots. Full chain by ~10s. |
+| Coincall | WS `orderBook` batches of 100 | Signed URL. Full chain by ~10s. |
+| Bybit | WS `orderbook.25.{symbol}` snapshot+delta | Public. Full chain by ~10s. Apply deltas (not first snapshot only). |
+| OKX | WS `books5` | Public. Snapshot every 100ms when changed. Full chain by ~10s. |
+| Binance | Slow sampler: 4 WS connections × ≤200 streams, SUBSCRIBE paced at 5 msg/s, listen ~30s with peers; REST depth for silent names (~2.5 req/s wall, stop before used-weight 400/min); ticker TOB last resort | `nbstream` is 404; use `fstream`. Depth streams are update-driven (quiet wings send nothing). Live `REQUEST_WEIGHT` is **400/min**, depth weight 2. `wait_for` for Binance is 90s; other venues `BOOKQ_BURST_TIMEOUT_S` (~40s). Ticker fills have epsilon size (spread/presence, not real L5). First apps enable: Deribit+Coincall+Bybit+OKX until a soak proves ≥80% coverage. |
 
 Isolation: per-venue `asyncio.wait_for`; a hang/error skips that venue for the slot.
 `quality.ok` = Deribit (hub) met its coverage floor.

@@ -24,7 +24,12 @@ from cryobookq.analytics.report.labels import (
 )
 from cryobookq.analytics.report.narrative import build_executive_summary, component_means
 from cryobookq.analytics.scorecard import (
+    CATALOGUE_DEPTH_REF_USD,
+    CATALOGUE_EXTRAS_MASS_REF,
+    CATALOGUE_HUB_N_REF,
+    CATALOGUE_WEIGHTS,
     DELTA_TARGETS,
+    HUB_VENUE,
     OVERALL_WEIGHTS,
     TENOR_TARGETS,
     WING_LABEL,
@@ -41,6 +46,7 @@ def scorecard_from_dict(d: dict[str, Any]) -> ScorecardResult:
         grid=dict(d.get("grid") or {}),
         wings=dict(d.get("wings") or {}),
         presence=dict(d.get("presence") or {}),
+        catalogue=dict(d.get("catalogue") or {}),
         overall={k: float(v) for k, v in (d.get("overall") or {}).items()},
         landmarks=list(d.get("landmarks") or []),
         meta=dict(d.get("meta") or {}),
@@ -161,19 +167,91 @@ def _wing_venue_headers_html(card: ScorecardResult) -> SafeHTML:
 
 def _wing_rows_html(card: ScorecardResult) -> SafeHTML:
     rows: list[str] = []
+    totals: dict[str, float] = {}
+    spreads: dict[str, list[float | None]] = {v: [] for v in card.venues}
     for tenor in TENOR_TARGETS:
         key = f"{tenor}:{WING_LABEL}"
         cell = card.wings.get(key)
         if not cell:
             continue
         tds = [f"<th scope='row'>{esc(TENOR_LABELS.get(tenor, tenor))} 2.5Δ</th>"]
+        scores: list[float] = []
         for v in card.venues:
             m = cell["venues"].get(v, {})
+            sc = float(m.get("score") or 0)
+            scores.append(sc)
+            totals[v] = totals.get(v, 0.0) + sc
+            spreads[v].append(m.get("spread_pct"))
             tds.append(
-                f"<td class='num'>{esc(fmt_num(m.get('score'), 1))} "
+                f"<td class='num'>{esc(fmt_num(sc, 1))} "
                 f"<span class='muted'>(spr {esc(fmt_pct(m.get('spread_pct')))})</span></td>"
             )
         rows.append("<tr>" + "".join(tds) + "</tr>")
+    n_tenor = max(1, sum(1 for t in TENOR_TARGETS if f"{t}:{WING_LABEL}" in card.wings))
+    means = {v: totals.get(v, 0.0) / n_tenor for v in card.venues}
+    best = max(means.values()) if means else None
+    tds = ["<th scope='row'>Total</th>"]
+    for v in card.venues:
+        sc = means.get(v, 0.0)
+        cls = (
+            "num best score"
+            if best is not None and abs(sc - best) < 1e-9 and len(means) > 1
+            else "num score"
+        )
+        spr = _mean_maybe(spreads.get(v) or [])
+        tds.append(
+            f"<td class='{cls}'>{esc(fmt_num(sc, 1))} "
+            f"<span class='muted'>(spr {esc(fmt_pct(spr))})</span></td>"
+        )
+    rows.append("<tr class='total'>" + "".join(tds) + "</tr>")
+    return SafeHTML("\n".join(rows))
+
+
+def _mean_maybe(xs: list[float | None]) -> float | None:
+    vals = [float(x) for x in xs if x is not None]
+    if not vals:
+        return None
+    return sum(vals) / len(vals)
+
+
+def _catalogue_rows_html(card: ScorecardResult) -> SafeHTML:
+    per = (card.catalogue or {}).get("per_venue") or {}
+    if not per:
+        return SafeHTML("")
+    scores = [float(per[v]["score"]) for v in card.venues if v in per]
+    best = max(scores) if scores else None
+    rows: list[str] = []
+    for v in card.venues:
+        pv = per.get(v)
+        if not pv:
+            continue
+        sc = float(pv.get("score") or 0)
+        cls = (
+            "num best score"
+            if best is not None and abs(sc - best) < 1e-9 and len(scores) > 1
+            else "num score"
+        )
+        n_inst = int(pv.get("n_instruments") or 0)
+        n_hub = int(pv.get("n_hub_two_sided") or 0)
+        n_ex = int(pv.get("n_extras") or 0)
+        extras_cell = (
+            "n/a"
+            if v == HUB_VENUE
+            else (
+                f"{esc(fmt_num(pv.get('extras_score')))} "
+                f"<span class='muted'>({n_ex} names)</span>"
+            )
+        )
+        rows.append(
+            "<tr>"
+            f"<th>{esc(venue_name(v))}</th>"
+            f"<td class='num muted'>{n_inst}</td>"
+            f"<td class='num'>{esc(fmt_num(pv.get('hub_coverage_score')))} "
+            f"<span class='muted'>({n_hub} two-sided)</span></td>"
+            f"<td class='num'>{extras_cell}</td>"
+            f"<td class='{cls}'>{esc(fmt_num(sc))}</td>"
+            "</tr>"
+        )
     return SafeHTML("\n".join(rows))
 
 
@@ -184,6 +262,45 @@ def _tenor_dl_html() -> SafeHTML:
         for t in TENOR_TARGETS
     ]
     return SafeHTML("".join(parts))
+
+
+def _capture_rows_html(card: ScorecardResult) -> SafeHTML:
+    cap = card.meta.get("capture") or {}
+    if not cap:
+        return SafeHTML(
+            "<tr><td colspan='5' class='muted'>No capture metadata for this report.</td></tr>"
+        )
+    rows: list[str] = []
+    for v in card.venues:
+        st = cap.get(v)
+        if not st:
+            if v in {"binance"}:
+                rows.append(
+                    f"<tr><td>{esc(venue_name(v))}</td>"
+                    f"<td colspan='4' class='muted'>No books captured in this window.</td></tr>"
+                )
+            continue
+        cov = st.get("coverage_mean", st.get("coverage"))
+        cov_s = esc(fmt_pct(100 * float(cov))) if cov is not None else "n/a"
+        n_inst = st.get("n_instruments")
+        n_up = st.get("n_with_update")
+        books_s = f"{n_up}/{n_inst}" if n_inst is not None else "n/a"
+        if n_up is None and n_inst is not None and cov is not None and n_inst:
+            books_s = f"{int(round(float(cov) * n_inst))}/{n_inst}"
+        dur = st.get("duration_s_mean", st.get("duration_s"))
+        dur_s = f"{float(dur):.1f}s" if dur is not None else "n/a"
+        flags = st.get("flags") or []
+        note_s = esc("; ".join(flags[:6])) if flags else "—"
+        rows.append(
+            f"<tr data-venue='{esc(v)}'>"
+            f"<td>{esc(venue_name(v))}</td>"
+            f"<td class='num'>{cov_s}</td>"
+            f"<td class='num'>{esc(books_s)}</td>"
+            f"<td class='num'>{esc(dur_s)}</td>"
+            f"<td class='note'>{note_s}</td>"
+            "</tr>"
+        )
+    return SafeHTML("\n".join(rows) if rows else "<tr><td colspan='5'>—</td></tr>")
 
 
 def _methodology_dl_html() -> SafeHTML:
@@ -206,7 +323,10 @@ def build_report_context(
 ) -> dict[str, Any]:
     """Assemble the dict consumed by ``scorecard.html``."""
     means = component_means(card)
-    summary = executive_summary or build_executive_summary(card)
+    summary_text = executive_summary or build_executive_summary(card)
+    summary_html = SafeHTML(
+        "".join(f"<p>{esc(p.strip())}</p>" for p in summary_text.split("\n\n") if p.strip())
+    )
     meta = report_copy.meta()
     sec_overall = report_copy.section("overall")
     sec_components = report_copy.section("components")
@@ -214,6 +334,8 @@ def build_report_context(
     sec_presence = report_copy.section("presence")
     sec_grid = report_copy.section("grid")
     sec_wings = report_copy.section("wings")
+    sec_catalogue = report_copy.section("catalogue")
+    sec_capture = report_copy.section("capture")
     sec_methodology = report_copy.section("methodology")
     generated = now_iso()
     weights = {
@@ -237,6 +359,8 @@ def build_report_context(
             "presence": sec_presence["heading"],
             "grid": sec_grid["heading"],
             "wings": sec_wings["heading"],
+            "catalogue": sec_catalogue["heading"],
+            "capture": sec_capture["heading"],
             "methodology": sec_methodology["heading"],
         },
         "explain": {
@@ -246,8 +370,17 @@ def build_report_context(
             "grid": _safe_copy_html(sec_grid["explain"]),
             "grid_delta": _safe_copy_html(sec_grid["delta_note"]),
             "wings": _safe_copy_html(sec_wings["explain"]),
+            "catalogue": _safe_copy_html(
+                sec_catalogue["explain"],
+                n_ref=CATALOGUE_HUB_N_REF,
+                depth_ref=CATALOGUE_DEPTH_REF_USD,
+                mass_ref=CATALOGUE_EXTRAS_MASS_REF,
+                hub_pct=f"{CATALOGUE_WEIGHTS['hub_coverage']:.0%}",
+                extras_pct=f"{CATALOGUE_WEIGHTS['extras']:.0%}",
+            ),
+            "capture": _safe_copy_html(sec_capture["explain"]),
         },
-        "executive_summary": summary,
+        "executive_summary": summary_html,
         "overall_cards": _overall_cards_html(card),
         "component_rows": _component_rows_html(card, means),
         "presence_rows": _presence_rows_html(card),
@@ -257,5 +390,7 @@ def build_report_context(
         "tenor_dl": _tenor_dl_html(),
         "wing_venue_headers": _wing_venue_headers_html(card),
         "wing_rows": _wing_rows_html(card),
+        "catalogue_rows": _catalogue_rows_html(card),
+        "capture_rows": _capture_rows_html(card),
         "methodology_dl": _methodology_dl_html(),
     }

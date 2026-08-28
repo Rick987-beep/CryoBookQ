@@ -37,7 +37,12 @@ class Settings:
     coverage_floor_bybit: float = 0.80
     coverage_floor_okx: float = 0.80
     coverage_floor_binance: float = 0.80
-    burst_timeout_s: float = 25.0
+    burst_timeout_s: float = 40.0
+    ws_collect_s: float = 30.0
+    # Binance is a slow sampler (stream cap + REST weight). Peers keep burst_timeout_s.
+    binance_collect_s: float = 30.0
+    binance_rest_budget_s: float = 45.0
+    binance_timeout_s: float = 90.0
     disk_free_warn_mb: int = 5000
     disk_free_abort_mb: int = 500
     # P1
@@ -56,6 +61,18 @@ class Settings:
             "okx": self.coverage_floor_okx,
             "binance": self.coverage_floor_binance,
         }
+
+    def burst_wait_s(self, venue: str) -> float:
+        """Per-venue asyncio.wait_for budget. Only Binance uses the long sampler cap."""
+        if venue.strip().lower() == "binance":
+            return float(self.binance_timeout_s)
+        return float(self.burst_timeout_s)
+
+    def burst_duration_s(self, venue: str, requested: float) -> float:
+        """WS collect window. All venues listen at least ws_collect_s; Binance uses its own floor."""
+        if venue.strip().lower() == "binance":
+            return max(float(requested), float(self.binance_collect_s))
+        return max(float(requested), float(self.ws_collect_s))
 
 
 def get_settings(*, load: bool = True) -> Settings:
@@ -79,7 +96,11 @@ def get_settings(*, load: bool = True) -> Settings:
         coverage_floor_bybit=float(os.getenv("BOOKQ_COVERAGE_FLOOR_BYBIT", "0.80")),
         coverage_floor_okx=float(os.getenv("BOOKQ_COVERAGE_FLOOR_OKX", "0.80")),
         coverage_floor_binance=float(os.getenv("BOOKQ_COVERAGE_FLOOR_BINANCE", "0.80")),
-        burst_timeout_s=float(os.getenv("BOOKQ_BURST_TIMEOUT_S", "25")),
+        burst_timeout_s=float(os.getenv("BOOKQ_BURST_TIMEOUT_S", "40")),
+        ws_collect_s=float(os.getenv("BOOKQ_WS_COLLECT_S", "30")),
+        binance_collect_s=float(os.getenv("BOOKQ_BINANCE_COLLECT_S", "30")),
+        binance_rest_budget_s=float(os.getenv("BOOKQ_BINANCE_REST_BUDGET_S", "45")),
+        binance_timeout_s=float(os.getenv("BOOKQ_BINANCE_TIMEOUT_S", "90")),
         disk_free_warn_mb=int(os.getenv("BOOKQ_DISK_FREE_WARN_MB", "5000")),
         disk_free_abort_mb=int(os.getenv("BOOKQ_DISK_FREE_ABORT_MB", "500")),
         instrument_cache_ttl_s=float(os.getenv("BOOKQ_INSTRUMENT_CACHE_TTL_S", "1800")),

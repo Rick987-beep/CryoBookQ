@@ -328,6 +328,9 @@ def test_third_venue_missing_does_not_change_deribit() -> None:
     b = build_scorecard(three, ts_ms=ts)
     assert a.overall["deribit"] == pytest.approx(b.overall["deribit"])
     assert a.overall["coincall"] == pytest.approx(b.overall["coincall"])
+    assert a.catalogue["per_venue"]["deribit"]["score"] == pytest.approx(
+        b.catalogue["per_venue"]["deribit"]["score"]
+    )
 
 
 def test_presence_independent_per_venue() -> None:
@@ -342,4 +345,73 @@ def test_presence_independent_per_venue() -> None:
     out = presence_scores([p], ["deribit", "bybit", "okx"])
     assert out["per_venue"]["bybit"]["two_sided_rate"] == 1.0
     assert out["per_venue"]["okx"]["two_sided_rate"] == 0.0
+
+
+def test_catalogue_hub_equals_coverage_extras_liquidity_gated() -> None:
+    from cryobookq.analytics.scorecard import (
+        CATALOGUE_HUB_N_REF,
+        CATALOGUE_WEIGHTS,
+        catalogue_scores,
+        depth_usd,
+        score_higher_better,
+    )
+    from cryobookq.pipeline.match import MatchedContract
+
+    ts = 1_700_000_000_000
+    key_hub = OptionKey("BTC", ts, 80_000.0, True)
+    key_extra = OptionKey("BTC", ts, 90_000.0, True)
+    key_empty = OptionKey("BTC", ts, 91_000.0, True)
+    d = _book_row(
+        venue="deribit", key=key_hub, delta=0.5, bid=200.0, ask=204.0,
+        bid_sz=30.0, ask_sz=30.0, deeper=True,
+    )
+    b_hub = _book_row(
+        venue="bybit", key=key_hub, delta=0.5, bid=200.0, ask=204.0,
+        bid_sz=30.0, ask_sz=30.0, deeper=True,
+    )
+    b_ex = _book_row(
+        venue="bybit", key=key_extra, delta=0.1, bid=50.0, ask=52.0,
+        bid_sz=40.0, ask_sz=40.0, deeper=True,
+    )
+    b_empty = _book_row(
+        venue="bybit", key=key_empty, delta=0.1, bid=50.0, ask=0.0,
+        bid_sz=40.0, ask_sz=0.0,
+    )
+    pairs = [
+        MatchedPair(key=key_hub, deribit=d, books={"bybit": b_hub}),
+        MatchedContract(key=key_extra, books={"bybit": b_ex}),
+        MatchedContract(key=key_empty, books={"bybit": b_empty}),
+    ]
+    out = catalogue_scores(pairs, ["deribit", "bybit"])
+    d_pv = out["per_venue"]["deribit"]
+    b_pv = out["per_venue"]["bybit"]
+    assert d_pv["n_extras"] == 0
+    assert d_pv["score"] == pytest.approx(d_pv["hub_coverage_score"])
+    assert d_pv["n_instruments"] == 1
+    assert b_pv["n_instruments"] == 3
+    assert b_pv["n_extras"] == 1
+    assert b_pv["extras_mass"] == pytest.approx(min(1.0, (depth_usd(b_ex) or 0) / 2000.0))
+    assert b_pv["hub_coverage_score"] == pytest.approx(
+        score_higher_better(1.0, CATALOGUE_HUB_N_REF)
+    )
+    expected = (
+        CATALOGUE_WEIGHTS["hub_coverage"] * b_pv["hub_coverage_score"]
+        + CATALOGUE_WEIGHTS["extras"] * b_pv["extras_score"]
+    )
+    assert b_pv["score"] == pytest.approx(expected)
+    card = build_scorecard(pairs, ts_ms=ts)
+    card_hub = build_scorecard([pairs[0]], ts_ms=ts)
+    assert card.overall["deribit"] == pytest.approx(card_hub.overall["deribit"])
+    assert card.catalogue["per_venue"]["bybit"]["n_extras"] == 1
+
+
+def test_binance_always_on_scorecard_without_rows() -> None:
+    ts = 1_700_000_000_000
+    key = OptionKey("BTC", ts + 86_400_000, 80_000.0, True)
+    d = _book_row(venue="deribit", key=key, delta=0.5, bid=200, ask=204, bid_sz=40, ask_sz=40)
+    pairs = [MatchedPair(key=key, deribit=d, books={})]
+    card = build_scorecard(pairs, ts_ms=ts, ensure_venues=["deribit"])
+    assert "binance" in card.venues
+    assert card.overall["binance"] == pytest.approx(0.0)
+    assert card.grid["short:50d"]["venues"]["binance"]["score"] == 0.0
 

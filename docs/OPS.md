@@ -37,7 +37,8 @@ Hub (UI) remains on ``BOOKQ_HUB_PORT`` (8088).
 - Coverage floors gate **that venue’s** parquet rows (default Deribit ≥90%; others ≥80%).
   `quality.ok` is true when **Deribit (hub)** met its floor. Other venue failures are
   incomplete, not a daemon gap.
-- `BOOKQ_BURST_TIMEOUT_S` (default 25) kills a hung venue burst so peers still finish.
+- `BOOKQ_BURST_TIMEOUT_S` (default 40) kills a hung venue burst so peers still finish.
+  Peers listen `BOOKQ_WS_COLLECT_S` (default 30). Binance then REST-fills (`BOOKQ_BINANCE_TIMEOUT_S` 90).
 - Parquet: ``data/{raw_books,pair_scores}/date=YYYY-MM-DD/part-{ts_ms}.parquet``.
 - Disk abort if free &lt; ``BOOKQ_DISK_FREE_ABORT_MB`` (default 500).
 - **P1:** Deribit clock sync for boundary opens; instrument list cache (30‑min TTL, stale-on-failure); UTC midnight counter roll; REST off the event loop via ``asyncio.to_thread``.
@@ -62,6 +63,8 @@ Warn if free &lt; 5 GB. Archive old Parquet under `data/` monthly if needed.
 `--venues deribit,coincall,bybit,okx,binance` (comma-separated). Public MD for
 Deribit/Bybit/OKX/Binance; Coincall needs API keys. Do **not** enable all five on
 apps until explicitly approved. First production add: Bybit+OKX beside the existing two.
+Binance is a 60–90s sampler (`BOOKQ_BINANCE_TIMEOUT_S`); 15-min slots absorb that. Do
+not run Binance on a soak cadence shorter than its timeout.
 
 See `docs/VENUES.md` and `docs/ARCHITECTURE.md`.
 

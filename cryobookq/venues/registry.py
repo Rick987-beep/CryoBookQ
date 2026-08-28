@@ -26,7 +26,8 @@ def make_venue(name: str, settings: Settings | None = None) -> Any:
     if key == "okx":
         return OkxVenue()
     if key == "binance":
-        return BinanceVenue()
+        s = settings or get_settings()
+        return BinanceVenue(rest_budget_s=s.binance_rest_budget_s)
     raise ValueError(f"unknown venue {name!r}")
 
 

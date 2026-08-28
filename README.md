@@ -33,9 +33,10 @@ cp .env.example .env   # fill COINCALL_* from CryoTrader PROD keys
 ### One-shot dual snapshot + scores
 
 ```bash
-.venv/bin/python -m cryobookq.daemon --once --venues deribit,coincall,bybit,okx,binance --duration 18
+.venv/bin/python -m cryobookq.daemon --once --venues deribit,coincall,bybit,okx,binance --duration 30
+# Peers listen ~30s (BOOKQ_WS_COLLECT_S). Binance then REST-fills silent names (90s wait).
 # or full report:
-.venv/bin/python tools/live_score.py --duration 18
+.venv/bin/python tools/live_score.py --duration 30
 ```
 
 ### Hub (local)

@@ -1,72 +1,77 @@
-# Locked Comparison Scorecard copy (prose). Edit here — not in HTML snippets.
+# Locked Comparison Scorecard copy (prose). Edit here, not in HTML snippets.
 
 [meta]
 eyebrow = "CryoBookQ · Independent book-quality comparer"
 footer = """Generated {generated} by CryoBookQ.
-Independent research tooling — not an exchange publication.
-Figures are point-in-time L5 books; they are not a prediction of fill quality under stress."""
+Independent research tooling. This is not an exchange publication.
+Figures are point-in-time top-five books. They are not a prediction of fill quality under stress."""
 
 [sections.overall]
-heading = "Overall index (0–10)"
-explain = """Comparable multi-venue score. Higher is better. Built from
-<strong>Deribit-listed (hub)</strong> options; other venues are looked up independently.
-A missing book zeros that venue’s cell only. Absolute score bands are fixed so adding
-a venue does not AND-filter the universe or reshuffle peer ranks."""
+heading = "1. Overall index (0–10)"
+explain = """<p>This scorecard ranks Bitcoin option order books across exchanges. An option is a listed contract to buy (a call) or sell (a put) one BTC at a strike by an expiry. What we compare is the displayed book: whether both a bid and an ask are present, how wide that spread is, and whether a modest premium ticket of about $10,000 can be lifted through the top five levels.</p>
+<p>Deribit is the <strong>listing hub</strong>. Other venues are scored on the same contracts independently. A missing or one-sided book zeros that venue’s cell only. Scores use fixed 0–10 bands, so adding a venue does not shrink the universe or reshuffle peers. Higher is better.</p>"""
 
 [sections.components]
-heading = "Component summary"
-explain = """The overall index is a weighted blend of three components:
-<strong>grid</strong> ({grid_pct} — tradable ATM-to-wing landmarks),
-<strong>wings</strong> ({wings_pct} — very far OTM / 2.5Δ),
-and <strong>presence</strong> ({presence_pct} — share of hub-listed
-books this venue quotes two-sided)."""
+heading = "2. Component summary"
+explain = """The overall index is a weighted blend of three components. The <strong>grid</strong> ({grid_pct}) covers tradable at-the-money to moderate-wing landmarks. <strong>Wings</strong> ({wings_pct}) cover far out-of-the-money contracts at 2.5 delta. <strong>Presence</strong> ({presence_pct}) is the share of hub-listed books this venue quotes two-sided."""
 
 [sections.executive]
-heading = "Executive Summary"
+heading = "3. Executive Summary"
 
 [sections.presence]
-heading = "Presence"
-explain = """Among Deribit-listed contracts this venue also listed, with |Δ| ≥ 0.05, what fraction
-of books have both a bid and an ask? Listing many one-sided names lowers this score.
-A missing book on one venue does not drop peers’ scores."""
+heading = "4. Presence"
+explain = """Among Deribit-listed contracts this venue also listed, with |Δ| ≥ 0.05, what fraction of books have both a bid and an ask? Listing many one-sided names lowers this score. A missing book on one venue does not drop peers’ scores."""
 
 [sections.grid]
-heading = "Liquidity grid (3×3)"
-explain = """Each cell picks the nearest listed expiry to the tenor targets, then the nearest
-<strong>call and put</strong> to the |Δ| target, and averages them.
+heading = "5. Liquidity grid (3×3)"
+explain = """Each cell picks the nearest listed expiry to the tenor targets, then the nearest <strong>call and put</strong> to the |Δ| target, and averages them.
 Columns per venue:
 <strong>Spread</strong> = (ask₁ − bid₁) / mid as %;
-<strong>$10k</strong> = effective premium paid above mid when lifting ~$10 000 of option
+<strong>$10k</strong> = effective premium paid above mid when lifting about $10 000 of option
 premium through L5 (n/a if the book cannot fill);
 <strong>Depth</strong> = sum of L5 bid+ask premium notional ($000s);
 <strong>Score</strong> = 0–10 blend weighted <strong>65% spread / 25% $10k lift / 10% depth</strong>
 (green highlight = best score in the row)."""
-delta_note = """Delta targets: 50Δ (near ATM), 25Δ, and 7.5Δ. Very far OTM (2.5Δ) is scored separately
-under Wings so junk listings do not dominate the grid."""
+delta_note = """Delta targets are 50Δ (near at-the-money), 25Δ, and 7.5Δ. Very far out-of-the-money contracts (2.5Δ) are scored separately under Wings so thin listings do not dominate the grid."""
 
 [sections.wings]
-heading = "Wings (2.5Δ)"
-explain = """Same tenor recipe as the grid, but targeting |Δ| ≈ 0.025. This is a separate component:
-wide or empty wing books are common and should not drown the ATM/25Δ comparison."""
+heading = "6. Wings (2.5Δ)"
+explain = """Far out-of-the-money options, at about 2.5 delta, are scored in this section rather than in the main grid. Empty or very wide wing books are common, and they would otherwise dominate a single blended score. The same three tenor buckets are used as in the grid. <strong>Total</strong> is the equal-weight average of those three tenor scores. That average is the wings component of the overall index."""
+
+[sections.catalogue]
+heading = "7. Catalogue"
+explain = """Catalogue measures how much of the BTC option surface is actually quotable. Presence is the hit-rate on names a venue listed. Catalogue is the size of the tradable set.
+<strong>Hub coverage</strong> maps two-sided quotes among Deribit-listed names (|Δ| ≥ 0.05) to 0–10 against a fixed reference of {n_ref:.0f} names. That is a count, not a rate.
+<strong>Extras</strong> are two-sided names Deribit does not quote two-sided. Each name contributes up to 1.0 by saturating L5 depth at ${depth_ref:.0f} premium notional, then maps to 0–10 against {mass_ref:.0f} well-quoted extras.
+For other venues, Catalogue equals {hub_pct} hub coverage plus {extras_pct} extras. Deribit’s extras are 0 by construction, because the hub is the baseline, so its Catalogue equals hub coverage.
+<strong>Instruments</strong> is the raw captured-book count. It is shown for context and is not scored."""
+
+[sections.capture]
+heading = "8. Capture quality"
+explain = """Per-venue burst statistics for this report window: instrument coverage, listen duration, and any API or rate-limit flags from the collector. Binance uses a slow sampler (multi-socket WS, paced REST, optional ticker TOB for silent names). Ticker-filled rows have epsilon size and are not full L5 depth."""
 
 [sections.methodology]
-heading = "Methodology notes"
+heading = "9. Methodology notes"
 
 [[sections.methodology.items]]
 term = "Universe"
-definition = "BTC options only. Deribit is the listing hub. Exact match on (expiry, strike, call/put). Other venues are looked up independently — never an N-way intersection."
+definition = "BTC options only. Deribit is the listing hub. Exact match on (expiry, strike, call/put). Other venues are looked up independently. There is never an N-way intersection."
 
 [[sections.methodology.items]]
 term = "$10k lift"
-definition = "Walk the ask until ~$10 000 of option premium is filled (not spot BTC). Score uses (VWAP − mid) / mid."
+definition = "Walk the ask until about $10 000 of option premium is filled (not spot BTC). Score uses (VWAP − mid) / mid."
 
 [[sections.methodology.items]]
 term = "0–10 maps"
-definition = "Absolute reference bands per delta bucket (documented in CryoBookQ SCORING.md). Missing/one-sided → 0 for that component. Each cell blends 65% relative spread, 25% $10k lift, 10% L5 depth."
+definition = "Absolute reference bands per delta bucket (documented in CryoBookQ SCORING.md). Missing or one-sided books score 0 for that component. Each cell blends 65% relative spread, 25% $10k lift, 10% L5 depth."
 
 [[sections.methodology.items]]
 term = "Period scores"
-definition = "When multiple snapshots are included, each snapshot gets a full scorecard; reported figures are equal-weight averages across snapshots."
+definition = "When multiple snapshots are included, each snapshot gets a full scorecard. Reported figures are equal-weight averages across snapshots."
+
+[[sections.methodology.items]]
+term = "Catalogue"
+definition = "Separate from Overall. Hub coverage is two-sided count among Deribit-listed |Δ| ≥ 0.05 names (ref 800). Extras are two-sided names the hub does not quote two-sided, liquidity-gated (depth saturates at $2,000; 40 well-quoted extras = 10). Instrument count is informational."
 
 [[sections.methodology.items]]
 term = "Deltas"

@@ -16,6 +16,17 @@ def test_defaults(monkeypatch) -> None:
     assert s.depth == 5
     assert s.snapshot_interval_min == 15
     assert not s.has_coincall_creds
+    assert s.binance_collect_s == 30.0
+    assert s.binance_timeout_s == 90.0
+    assert s.binance_rest_budget_s == 45.0
+    assert s.ws_collect_s == 30.0
+    assert s.burst_timeout_s == 40.0
+    assert s.burst_wait_s("bybit") == 40.0
+    assert s.burst_wait_s("binance") == 90.0
+    assert Settings(burst_timeout_s=10.0, binance_timeout_s=0.4).burst_wait_s("binance") == 0.4
+    assert s.burst_duration_s("okx", 18.0) == 30.0
+    assert s.burst_duration_s("binance", 18.0) == 30.0
+    assert Settings(ws_collect_s=12.0).burst_duration_s("okx", 18.0) == 18.0
 
 
 def test_env_overrides(monkeypatch) -> None:

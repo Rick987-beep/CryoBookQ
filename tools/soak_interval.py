@@ -24,7 +24,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from cryobookq.analytics import summarize_snapshot, who_wins
-from cryobookq.analytics.scorecard import build_scorecard_from_store, format_scorecard
+from cryobookq.analytics.scorecard import build_scorecard_from_store, format_scorecard, merge_capture_snapshots
 from cryobookq.capture.clock import CLOCK
 from cryobookq.capture.scheduler import IntervalSlotTracker
 from cryobookq.capture.snapshot import run_snapshot
@@ -65,6 +65,17 @@ async def main() -> int:
         "data_dir": args.data_dir,
         "burst_timeout_s": max(base.burst_timeout_s, args.duration + 28),
     }
+    if "binance" in venues:
+        extra["binance_collect_s"] = max(base.binance_collect_s, args.duration)
+        extra["binance_timeout_s"] = max(
+            base.binance_timeout_s, extra["burst_timeout_s"], args.duration + 40
+        )
+        if args.interval + 1 < extra["binance_timeout_s"]:
+            logger.warning(
+                "interval=%.0fs is shorter than Binance timeout=%.0fs; slots will overlap",
+                args.interval,
+                extra["binance_timeout_s"],
+            )
     if args.relaxed_floors:
         extra["coverage_floor_bybit"] = 0.30
         extra["coverage_floor_okx"] = 0.30
@@ -134,6 +145,7 @@ async def main() -> int:
                 "bybit_coverage": (result.stats.get("bybit") or {}).get("coverage"),
                 "okx_coverage": (result.stats.get("okx") or {}).get("coverage"),
                 "binance_coverage": (result.stats.get("binance") or {}).get("coverage"),
+                "capture": (result.scorecard or {}).get("meta", {}).get("capture"),
                 "raw_path": result.raw_path,
                 "scores_path": result.scores_path,
             }
@@ -155,6 +167,9 @@ async def main() -> int:
     period_report = None
     try:
         period_card = build_scorecard_from_store(args.data_dir)
+        period_card.meta["capture"] = merge_capture_snapshots(
+            [p.get("capture") for p in per if isinstance(p.get("capture"), dict)]
+        )
         period_report = format_scorecard(period_card)
         print(period_report)
         print()

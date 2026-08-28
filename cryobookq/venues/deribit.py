@@ -15,7 +15,7 @@ import websockets.exceptions
 
 from cryobookq.symbols import option_key_from_symbol
 from cryobookq.types import BookL5, Instrument, OptionKey, pad_levels
-from cryobookq.venues._util import BurstStats, Timer, peak_rss_mb
+from cryobookq.venues._util import BurstStats, CatalogueTracker, Timer, peak_rss_mb, track_catalogue
 
 logger = logging.getLogger(__name__)
 
@@ -184,62 +184,63 @@ class DeribitVenue:
                 )
                 notes.append(f"collect_until_unix={deadline_ts:.3f}")
 
-                # Drain subscribe acks + book updates until deadline
-                while time.time() < deadline_ts:
-                    remaining = deadline_ts - time.time()
-                    if remaining <= 0:
-                        break
-                    try:
-                        raw = await asyncio.wait_for(ws.recv(), timeout=min(1.0, remaining))
-                    except TimeoutError:
-                        continue
-                    except websockets.exceptions.ConnectionClosed as exc:
-                        errors.append(f"ws_closed:{exc}")
-                        break
+                cat = CatalogueTracker(self.name, len(symbols), books, notes, t_start)
+                async with track_catalogue(cat, deadline_ts):
+                    while time.time() < deadline_ts:
+                        remaining = deadline_ts - time.time()
+                        if remaining <= 0:
+                            break
+                        try:
+                            raw = await asyncio.wait_for(ws.recv(), timeout=min(1.0, remaining))
+                        except TimeoutError:
+                            continue
+                        except websockets.exceptions.ConnectionClosed as exc:
+                            errors.append(f"ws_closed:{exc}")
+                            break
 
-                    try:
-                        msg = json.loads(raw)
-                    except json.JSONDecodeError:
-                        continue
+                        try:
+                            msg = json.loads(raw)
+                        except json.JSONDecodeError:
+                            continue
 
-                    if "error" in msg:
-                        err = msg["error"]
-                        errors.append(str(err)[:200])
-                        continue
+                        if "error" in msg:
+                            err = msg["error"]
+                            errors.append(str(err)[:200])
+                            continue
 
-                    # Subscribe ack: empty result means channels rejected
-                    if "result" in msg and msg.get("id") is not None:
-                        result = msg.get("result")
-                        if isinstance(result, list) and len(result) == 0:
-                            errors.append("subscribe_ack_empty_result")
-                        continue
+                        # Subscribe ack: empty result means channels rejected
+                        if "result" in msg and msg.get("id") is not None:
+                            result = msg.get("result")
+                            if isinstance(result, list) and len(result) == 0:
+                                errors.append("subscribe_ack_empty_result")
+                            continue
 
-                    if msg.get("method") != "subscription":
-                        continue
+                        if msg.get("method") != "subscription":
+                            continue
 
-                    params = msg.get("params") or {}
-                    channel = params.get("channel") or ""
-                    data = params.get("data") or {}
-                    if not channel.startswith("book."):
-                        continue
-                    # book.BTC-28MAR26-80000-C.none.10.100ms
-                    parts = channel.split(".")
-                    if len(parts) < 2:
-                        continue
-                    symbol = parts[1]
-                    if symbol not in keys:
-                        continue
-                    bid_px, bid_sz, ask_px, ask_sz = _parse_book_sides(data, depth)
-                    books[symbol] = BookL5(
-                        venue=self.name,
-                        venue_symbol=symbol,
-                        key=keys.get(symbol),
-                        ts_exchange_ms=int(data["timestamp"]) if data.get("timestamp") else None,
-                        bid_px=bid_px,
-                        bid_sz=bid_sz,
-                        ask_px=ask_px,
-                        ask_sz=ask_sz,
-                    )
+                        params = msg.get("params") or {}
+                        channel = params.get("channel") or ""
+                        data = params.get("data") or {}
+                        if not channel.startswith("book."):
+                            continue
+                        # book.BTC-28MAR26-80000-C.none.10.100ms
+                        parts = channel.split(".")
+                        if len(parts) < 2:
+                            continue
+                        symbol = parts[1]
+                        if symbol not in keys:
+                            continue
+                        bid_px, bid_sz, ask_px, ask_sz = _parse_book_sides(data, depth)
+                        books[symbol] = BookL5(
+                            venue=self.name,
+                            venue_symbol=symbol,
+                            key=keys.get(symbol),
+                            ts_exchange_ms=int(data["timestamp"]) if data.get("timestamp") else None,
+                            bid_px=bid_px,
+                            bid_sz=bid_sz,
+                            ask_px=ask_px,
+                            ask_sz=ask_sz,
+                        )
 
                 # Best-effort unsubscribe
                 try:

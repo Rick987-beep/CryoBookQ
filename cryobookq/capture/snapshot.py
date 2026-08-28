@@ -32,9 +32,12 @@ from cryobookq.types import BookL5
 from cryobookq.venues._util import BurstStats
 from cryobookq.venues.registry import make_venue
 from cryobookq.venues.spec import SPECS
-from cryobookq.analytics.scorecard import build_scorecard
+from cryobookq.analytics.scorecard import build_scorecard, capture_summary_from_stats
 
 logger = logging.getLogger(__name__)
+
+# Always write captured rows and keep on scorecard even if coverage floor missed.
+ALWAYS_SCORE_VENUES = frozenset({"binance"})
 
 
 def fetch_btc_index() -> float:
@@ -115,7 +118,6 @@ async def run_snapshot(
 
     labels: list[str] = list(venues)
     n_inst: dict[str, int] = {}
-    timeout_s = float(settings.burst_timeout_s)
 
     async def _burst_one(name: str) -> tuple[dict[str, BookL5], BurstStats]:
         venue = make_venue(name, settings)
@@ -130,9 +132,11 @@ async def run_snapshot(
             raise RuntimeError(f"BTC index required to normalize {name}")
         syms = [i.venue_symbol for i in inst]
         n_inst[name] = len(syms)
-        return await venue.burst_books(syms, depth=depth, duration_s=duration_s)
+        dur = settings.burst_duration_s(name, duration_s)
+        return await venue.burst_books(syms, depth=depth, duration_s=dur)
 
     async def _isolated(name: str) -> tuple[dict[str, BookL5], BurstStats] | BaseException:
+        timeout_s = settings.burst_wait_s(name)
         try:
             return await asyncio.wait_for(_burst_one(name), timeout=timeout_s)
         except TimeoutError as exc:
@@ -203,7 +207,7 @@ async def run_snapshot(
             label not in quality.venue_errors
             and float(st.get("coverage") or 0.0) >= floor
         )
-        if not books or (not met and not force_write):
+        if not books or (not met and not force_write and label not in ALWAYS_SCORE_VENUES):
             continue
         raw_rows.extend(
             books_to_raw_rows(
@@ -216,7 +220,11 @@ async def run_snapshot(
 
     pairs = match_raw_rows(raw_rows)
     score_rows = score_pairs(pairs, ts_ms=ts_ms) if pairs else []
-    scorecard_obj = build_scorecard(pairs, ts_ms=ts_ms) if pairs else None
+    venue_stats = {k: stats[k] for k in labels if isinstance(stats.get(k), dict)}
+    capture = capture_summary_from_stats(venue_stats)
+    scorecard_obj = (
+        build_scorecard(pairs, ts_ms=ts_ms, ensure_venues=labels, capture=capture) if pairs else None
+    )
     scorecard = scorecard_obj.to_dict() if scorecard_obj else None
     matched = sum(1 for p in pairs if p.match_status == "matched")
     n_hub = sum(1 for p in pairs if p.has_hub)

@@ -113,7 +113,7 @@ async def run_once(venues: list[str], duration_s: float, print_summary: bool = T
     return 0 if (result.quality and result.quality.ok and result.wrote) else 2
 
 
-async def run_loop(venues: list[str], duration_s: float, lead_s: float = 12.0) -> None:
+async def run_loop(venues: list[str], duration_s: float, lead_s: float = 32.0) -> None:
     settings = get_settings()
     HEALTH.data_dir = str(settings.data_dir)
     HEALTH.disk_free_warn_mb = settings.disk_free_warn_mb
@@ -195,8 +195,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="cryobookq.daemon", description="CryoBookQ snapshot daemon")
     parser.add_argument("--once", action="store_true", help="Single snapshot then exit")
     parser.add_argument("--venues", default="deribit,coincall", help="Comma-separated venues")
-    parser.add_argument("--duration", type=float, default=15.0, help="Burst window seconds")
-    parser.add_argument("--lead", type=float, default=12.0, help="Seconds before boundary to open burst")
+    parser.add_argument("--duration", type=float, default=30.0, help="Burst window seconds")
+    parser.add_argument("--lead", type=float, default=32.0, help="Seconds before boundary to open burst")
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args(argv)
 
