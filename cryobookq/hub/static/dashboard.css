@@ -1,0 +1,374 @@
+/* CryoBookQ public dashboard — dark, responsive */
+
+:root {
+  --ink: #e7ecf1;
+  --muted: #8b9aab;
+  --muted2: #6b7a8a;
+  --line: #2a3441;
+  --bg: #0f1419;
+  --card: #161c24;
+  --card2: #1a222c;
+  --ok: #6dcaa4;
+  --info: #7db7ff;
+  --warn: #e6b84d;
+  --bad: #e07a7a;
+  --neutral: #8b9aab;
+  --accent: #7db7ff;
+  --radius: 6px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  line-height: 1.45;
+  font-size: 15px;
+}
+
+.wrap {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 2.5rem;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* Typography */
+h1 {
+  margin: 0;
+  font-size: 1.85rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.intro {
+  color: var(--muted);
+  margin: 0;
+  max-width: 72ch;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.muted2 {
+  color: var(--muted2);
+}
+
+.small {
+  font-size: 0.82rem;
+}
+
+.section-gap {
+  margin-top: 1.75rem;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.stack-lg {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.row-between {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+}
+
+.spacer {
+  flex: 1;
+}
+
+/* Pills */
+.pill {
+  display: inline-block;
+  padding: 0.18rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.pill.ok {
+  background: rgba(109, 202, 164, 0.15);
+  color: var(--ok);
+}
+
+.pill.info {
+  background: rgba(125, 183, 255, 0.15);
+  color: var(--info);
+}
+
+.pill.warn {
+  background: rgba(230, 184, 77, 0.15);
+  color: var(--warn);
+}
+
+.pill.bad {
+  background: rgba(224, 122, 122, 0.15);
+  color: var(--bad);
+}
+
+.pill.neutral {
+  background: rgba(139, 154, 171, 0.12);
+  color: var(--neutral);
+}
+
+/* Cards */
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.card-header {
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-weight: 600;
+}
+
+.card-body {
+  padding: 1rem;
+}
+
+.card.borderless {
+  background: var(--card2);
+  border: none;
+}
+
+/* Overall ranking */
+.leader-score {
+  font-size: 2.5rem;
+  font-weight: 600;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.rank-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  flex: 1;
+  min-width: 260px;
+}
+
+.rank-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.rank-row .score {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.overall-layout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  align-items: flex-start;
+}
+
+.leader-block {
+  min-width: 160px;
+}
+
+/* Venue grid */
+.venue-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+
+.venue-card .overall-big {
+  font-size: 1.65rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.venue-accent {
+  width: 3px;
+  height: 2rem;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.venue-accent.leader {
+  opacity: 1;
+}
+
+.venue-accent.other {
+  opacity: 0.45;
+}
+
+.divider {
+  border: none;
+  border-top: 1px solid var(--line);
+  margin: 0;
+}
+
+.venue-stats {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.stat {
+  flex: 1;
+  min-width: 4.5rem;
+}
+
+.stat .label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+}
+
+.stat .value {
+  font-size: 0.95rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  margin-top: 0.1rem;
+}
+
+.stat .value.ok { color: var(--ok); }
+.stat .value.info { color: var(--info); }
+.stat .value.warn { color: var(--warn); }
+.stat .value.bad { color: var(--bad); }
+
+/* Tables */
+.table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+table.data {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+table.data th,
+table.data td {
+  border-bottom: 1px solid var(--line);
+  padding: 0.55rem 0.65rem;
+  vertical-align: top;
+}
+
+table.data th {
+  color: var(--muted);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  text-align: left;
+}
+
+table.data td.num,
+table.data th.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+table.data.striped tbody tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+table.data tr.row-ok td.num { color: var(--ok); }
+table.data tr.row-info td.num { color: var(--info); }
+table.data tr.row-warn td.num { color: var(--warn); }
+table.data tr.row-bad td.num { color: var(--bad); }
+table.data tr.row-neutral td.num { color: var(--neutral); }
+
+table.data tr.total td {
+  font-weight: 600;
+}
+
+/* Three-column section */
+.cards-3 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+/* Empty state */
+.empty-banner {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1.25rem 1rem;
+  color: var(--muted);
+}
+
+/* Footer */
+.site-footer {
+  margin-top: 2rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.site-footer p {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted2);
+}
+
+.site-footer strong {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  h1 {
+    font-size: 1.5rem;
+  }
+
+  .leader-score {
+    font-size: 2rem;
+  }
+}

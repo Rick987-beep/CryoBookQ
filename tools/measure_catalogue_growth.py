@@ -53,7 +53,7 @@ def _setup_logging() -> logging.Logger:
 def _row(stats: BurstStats) -> dict[str, Any]:
     series = catalogue_series(stats.notes)
     two = None
-    for phase, n, total in series:
+    for phase, n, _total in series:
         if phase == "ws_done":
             two = n  # overwritten below with real two_sided from logs; keep n as books
             break

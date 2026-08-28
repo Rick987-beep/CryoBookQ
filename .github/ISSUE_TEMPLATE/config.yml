@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://github.com/Rick987-beep/CryoBookQ/blob/main/docs/README.md
+    about: Architecture, scoring, venues, and ops docs

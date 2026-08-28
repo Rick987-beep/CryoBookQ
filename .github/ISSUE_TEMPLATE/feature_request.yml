@@ -1,0 +1,26 @@
+---
+name: Feature request
+description: Suggest an enhancement (new venue, metric, report view, etc.)
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or goal
+      description: What are you trying to measure or improve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed approach
+    validations:
+      required: false
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      options:
+        - label: I read docs/SPEC.md and this fits the comparer mission (not live trading)
+          required: true

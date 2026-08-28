@@ -37,3 +37,7 @@ tmp/live/
 
 # Deploy leftovers
 DEPLOY_INFO
+
+# Generated reports (keep checked-in demos only)
+reports/scorecard_last3_prod.*
+reports/*_prod.*

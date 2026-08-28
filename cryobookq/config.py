@@ -48,6 +48,8 @@ class Settings:
     # P1
     instrument_cache_ttl_s: float = 1800.0  # 30 minutes
     clock_resync_every_s: float = 900.0  # re-sync Deribit clock at least this often
+    hub_snapshot_n: int = 4  # rolling mean window for public dashboard
+    hub_mount: str = ""  # e.g. /bookq when nginx proxies a subpath
 
     @property
     def has_coincall_creds(self) -> bool:
@@ -105,4 +107,6 @@ def get_settings(*, load: bool = True) -> Settings:
         disk_free_abort_mb=int(os.getenv("BOOKQ_DISK_FREE_ABORT_MB", "500")),
         instrument_cache_ttl_s=float(os.getenv("BOOKQ_INSTRUMENT_CACHE_TTL_S", "1800")),
         clock_resync_every_s=float(os.getenv("BOOKQ_CLOCK_RESYNC_EVERY_S", "900")),
+        hub_snapshot_n=int(os.getenv("BOOKQ_HUB_SNAPSHOT_N", "4")),
+        hub_mount=os.getenv("BOOKQ_HUB_MOUNT", "").strip(),
     )

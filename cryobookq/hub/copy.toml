@@ -1,0 +1,25 @@
+# Public dashboard copy — edit prose here, not in HTML.
+
+[meta]
+title = "CryoBookQ"
+
+[intro]
+text = """Side-by-side quality scores for BTC option order books on Deribit, Bybit, OKX, Binance, and Coincall — spread, $10k premium lift, and L5 depth at standard landmarks. Figures are a rolling mean of the last four 15-minute snapshots; they describe displayed liquidity, not guaranteed fill quality under stress."""
+
+[sections]
+venues = "Weighted 0–10 index per exchange: 60% grid + 20% wings + 20% presence · mean of last {n_snapshots} snapshots."
+grid = "Each cell scores spread, $10k lift, and L5 depth at a landmark contract (nearest listed expiry + nearest call & put to the |Δ| target, averaged). Higher is better."
+grid_tenors = "Short = nearest ~1–2 days · Mid = mean of weeklies (~7/14/21 DTE) · Far = mean of ~60/90/120 DTE"
+wings = "Far out-of-the-money books at ~2.5Δ — kept separate so thin wing listings do not dominate the main grid. Scores use the same 0–10 scale from spread, lift, and depth."
+wings_total = "Total is the equal-weight mean of the three tenor rows; that average is the wings component (20%) of the overall index."
+presence = "Among Deribit-listed contracts this venue also listed, with |Δ| ≥ 0.05, what share have both a bid and an ask? One-sided listings lower the score; a missing book on one venue does not affect peers."
+catalogue = "Catalogue measures quotable surface area — separate from the overall index. Hub coverage counts two-sided quotes on Deribit-listed names; extras reward two-sided names the hub does not quote, liquidity-gated by depth."
+
+[footer]
+disclaimer = """Alle Angaben dienen ausschließlich der Information und stellen keine Anlageberatung, Handelsempfehlung oder Aufforderung zum Kauf oder Verkauf dar. Die Daten basieren auf öffentlich sichtbaren Orderbüchern zum Erfassungszeitpunkt. Vervielfältigung oder Weiterverwendung ohne ausdrückliche Zustimmung nicht gestattet."""
+impressum = """Aureas GmbH, Vorhölzerstr. 2, 86911 Dießen am Ammersee · Vertretung durch Ulrik Deichsel · München HRB 192643 · Verantwortlicher gem. § 55 Abs. 2 RStV: Ulrik Deichsel"""
+privacy = """Beim Aufruf speichert der Webserver Zugriffsdaten (IP-Adresse, Zeitpunkt, Browser) auf Basis von Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse an Betrieb und Sicherheit). Es werden keine Cookies gesetzt und kein Tracking durchgeführt. Verantwortlicher: Aureas GmbH (siehe Impressum)."""
+attribution = "CryoBookQ · Independent research tooling · Not an exchange publication"
+
+[empty]
+message = "No scored snapshots in the data store yet. The dashboard will populate after the capture daemon writes raw books."

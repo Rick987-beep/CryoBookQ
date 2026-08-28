@@ -29,7 +29,23 @@ Fields: `status`, `last_ts_ms`, `last_ok`, `last_incomplete`, `gaps_today`,
 `incomplete_today`, `snapshots_today`, `writes_today`, `day_utc`, `disk_free_mb`,
 `clock` (Deribit offset), per-venue coverage in `last_stats`.
 
-Hub (UI) remains on ``BOOKQ_HUB_PORT`` (8088).
+## Hub (public dashboard)
+
+Flask app on ``BOOKQ_HUB_PORT`` (default **8088**), proxied at ``https://apps.aureas.xyz/bookq/``.
+
+The page is a **public scorecard dashboard** (no ops/health UI): overall ranking,
+venue cards, 3×3 liquidity grid, wings, presence, and catalogue — same scoring as
+the HTML report, with a rolling mean over the last ``BOOKQ_HUB_SNAPSHOT_N`` parquet
+files (default **4** × 15 min).
+
+Copy lives in ``cryobookq/hub/copy.toml``; view model in ``cryobookq/hub/view.py``.
+Set ``BOOKQ_HUB_MOUNT=/bookq`` in production ``.env`` so static assets resolve under the nginx subpath.
+Operational health remains at ``GET /health`` (daemon passthrough + hub metadata).
+
+```bash
+curl -s http://127.0.0.1:8088/health | python3 -m json.tool
+curl -s http://127.0.0.1:8088/api/status | python3 -m json.tool
+```
 
 ## P0 / P1 durability notes
 

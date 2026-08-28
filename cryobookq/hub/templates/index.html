@@ -4,138 +4,250 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>{{ title }}</title>
-  <style>
-    :root {
-      --ink: #e7ecf1;
-      --muted: #8b9aab;
-      --line: #2a3441;
-      --bg: #0f1419;
-      --card: #161c24;
-      --ok: #6dcaa4;
-      --warn: #e6b84d;
-      --bad: #e07a7a;
-      --accent: #7db7ff;
-    }
-    * { box-sizing: border-box; }
-    body {
-      font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
-      margin: 0; background: var(--bg); color: var(--ink); line-height: 1.45;
-    }
-    .wrap { max-width: 1080px; margin: 0 auto; padding: 2rem 1.25rem 3rem; }
-    header { border-bottom: 1px solid var(--line); padding-bottom: 1rem; margin-bottom: 1.5rem; }
-    h1 { margin: 0 0 0.25rem; font-size: 1.75rem; font-weight: 600; letter-spacing: -0.02em; }
-    .sub { color: var(--muted); margin: 0; }
-    h2 { font-size: 1.05rem; margin: 1.75rem 0 0.65rem; color: var(--ink); }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.75rem; }
-    .stat {
-      background: var(--card); border: 1px solid var(--line); border-radius: 4px;
-      padding: 0.75rem 0.9rem;
-    }
-    .stat .label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
-    .stat .value { font-size: 1.25rem; font-weight: 600; margin-top: 0.15rem; }
-    .badge {
-      display: inline-block; padding: 0.15rem 0.55rem; border-radius: 999px;
-      font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em;
-    }
-    .badge.ok { background: rgba(109,202,164,0.15); color: var(--ok); }
-    .badge.warn { background: rgba(230,184,77,0.15); color: var(--warn); }
-    .badge.bad { background: rgba(224,122,122,0.15); color: var(--bad); }
-    table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
-    th, td { border-bottom: 1px solid var(--line); padding: 0.55rem 0.65rem; text-align: left; vertical-align: top; }
-    th { color: var(--muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
-    td.num { text-align: right; font-variant-numeric: tabular-nums; }
-    .venue-name { display: flex; align-items: center; gap: 0.45rem; }
-    .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-    .hub-tag { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
-    .flags { color: var(--muted); font-size: 0.82rem; max-width: 280px; }
-    .note { color: var(--muted); font-size: 0.88rem; margin: 0.35rem 0 0.75rem; }
-    .err { color: var(--bad); font-size: 0.88rem; }
-    a { color: var(--accent); text-decoration: none; }
-    a:hover { text-decoration: underline; }
-    footer { margin-top: 2rem; color: var(--muted); font-size: 0.8rem; border-top: 1px solid var(--line); padding-top: 1rem; }
-  </style>
+  <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}"/>
 </head>
 <body>
   <div class="wrap">
-    <header>
-      <h1>{{ title }}</h1>
-      <p class="sub">{{ subtitle }} · {{ interval_min }}-minute snapshots · Deribit listing hub</p>
+    <header class="stack">
+      <div class="row-between">
+        <h1>{{ title }}</h1>
+        <div class="row">
+          <span class="pill info">Deribit hub</span>
+          {% if has_data %}
+          <span class="pill info">{{ interval_min }} min · {{ meta.n_snapshots }}-snap mean</span>
+          {% endif %}
+        </div>
+      </div>
+      <p class="intro">{{ intro }}</p>
     </header>
 
-    <h2>System health</h2>
-    <p>
-      Status <span class="badge {{ status_class }}">{{ status }}</span>
-      {% if quality_ok is not none %}
-        · hub quality {% if quality_ok %}<span class="badge ok">ok</span>{% else %}<span class="badge warn">incomplete</span>{% endif %}
-      {% endif %}
-    </p>
-    {% if last_error %}
-    <p class="err">Last error: {{ last_error }}</p>
-    {% endif %}
-    {% if quality_reasons %}
-    <p class="note">{{ quality_reasons | join(' · ') }}</p>
-    {% endif %}
+    {% if not has_data %}
+    <div class="section-gap empty-banner">{{ empty_message }}</div>
+    {% else %}
 
-    <div class="grid">
-      <div class="stat"><div class="label">Last snapshot</div><div class="value">{{ last_ts }}</div></div>
-      <div class="stat"><div class="label">Today</div><div class="value">{{ health.snapshots_today }} snaps · {{ health.writes_today }} writes</div></div>
-      <div class="stat"><div class="label">Gaps / incomplete</div><div class="value">{{ health.gaps_today }} / {{ health.incomplete_today }}</div></div>
-      <div class="stat"><div class="label">Uptime</div><div class="value">{{ uptime_h }} h</div></div>
-      <div class="stat"><div class="label">Disk free</div><div class="value">{{ disk_gb }} GB</div></div>
-      <div class="stat"><div class="label">Clock vs Deribit</div><div class="value">{{ clock_ms }} ms</div></div>
-    </div>
-
-    <h2>Exchange scores &amp; capture</h2>
-    {% if scorecard_note %}
-    <p class="note">{{ scorecard_note }}</p>
-    {% endif %}
-    <table>
-      <thead>
-        <tr>
-          <th>Venue</th>
-          <th class="num">Overall</th>
-          <th class="num">Grid</th>
-          <th class="num">Wings</th>
-          <th class="num">Presence</th>
-          <th class="num">Capture</th>
-          <th class="num">Books</th>
-          <th>Last burst</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for v in venue_rows %}
-        <tr>
-          <td>
-            <div class="venue-name">
-              <span class="dot" style="background:{{ v.color }}"></span>
-              <span>{{ v.name }}{% if v.hub %} <span class="hub-tag">hub</span>{% endif %}</span>
+    <section class="section-gap">
+      <div class="card">
+        <div class="card-header">
+          <span>Overall ranking</span>
+          {% if leader %}
+          <span class="pill ok">#{{ leader.rank }} {{ leader.name }}</span>
+          {% endif %}
+        </div>
+        <div class="card-body">
+          <div class="overall-layout">
+            {% if leader %}
+            <div class="leader-block stack">
+              <span class="small muted">Leader · 0–10 index</span>
+              <div class="row">
+                <span class="pill ok">#1</span>
+                <span class="leader-score">{{ leader.overall_fmt }}</span>
+              </div>
+              <span>{{ leader.name }}</span>
+              <span class="small muted">
+                Grid {{ leader.grid_fmt }} · Wings {{ leader.wings_fmt }} · Presence {{ leader.presence_pct }}
+              </span>
             </div>
-          </td>
-          <td class="num">{% if v.overall is not none %}{{ '%.2f'|format(v.overall) }}{% else %}—{% endif %}</td>
-          <td class="num">{% if v.grid is not none %}{{ '%.2f'|format(v.grid) }}{% else %}—{% endif %}</td>
-          <td class="num">{% if v.wings is not none %}{{ '%.2f'|format(v.wings) }}{% else %}—{% endif %}</td>
-          <td class="num">{% if v.presence_rate is not none %}{{ '%.0f'|format(100 * v.presence_rate) }}%{% else %}—{% endif %}</td>
-          <td class="num">{% if v.capture_coverage is not none %}{{ '%.0f'|format(100 * v.capture_coverage) }}%{% else %}—{% endif %}</td>
-          <td class="num">{% if v.n_instruments is not none %}{{ v.n_instruments }}{% else %}—{% endif %}</td>
-          <td class="flags">
-            {% if v.duration_s is not none %}{{ '%.0f'|format(v.duration_s) }}s{% endif %}
-            {% if v.flags %}<br/>{{ v.flags | join(' · ') }}{% endif %}
-            {% if v.error %}<br/><span class="err">{{ v.error }}</span>{% endif %}
-          </td>
-        </tr>
+            {% endif %}
+            <div class="rank-list">
+              {% for v in ranked_venues %}
+              <div class="rank-row">
+                <div class="row">
+                  <span class="pill {{ v.rank_tone }}">#{{ v.rank }}</span>
+                  <span{% if v.rank == 1 %} style="font-weight:600"{% endif %}>{{ v.name }}</span>
+                  {% if v.hub %}<span class="pill info">hub</span>{% endif %}
+                </div>
+                <span class="score">{{ v.overall_fmt }}</span>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-gap stack">
+      <h2>Venues</h2>
+      <p class="small muted">{{ copy.venues }}</p>
+      <div class="venue-grid">
+        {% for v in ranked_venues %}
+        <div class="card borderless venue-card">
+          <div class="card-body stack-lg">
+            <div class="row-between">
+              <div class="row">
+                <span class="pill {{ v.rank_tone }}">#{{ v.rank }}</span>
+                <span class="venue-accent {% if v.rank == 1 %}leader{% else %}other{% endif %}" style="background:{{ v.color }}"></span>
+                <div class="stack">
+                  <div class="row">
+                    <span style="font-weight:600">{{ v.name }}</span>
+                    {% if v.hub %}<span class="pill info">hub</span>{% endif %}
+                  </div>
+                  {% if v.n_instruments is not none %}
+                  <span class="small muted2">{{ v.n_instruments }} books</span>
+                  {% endif %}
+                </div>
+              </div>
+              <span class="overall-big">{{ v.overall_fmt }}</span>
+            </div>
+            <hr class="divider"/>
+            <div class="venue-stats">
+              <div class="stat">
+                <div class="label">Grid</div>
+                <div class="value {{ v.grid_tone }}">{{ v.grid_fmt }}</div>
+              </div>
+              <div class="stat">
+                <div class="label">Wings</div>
+                <div class="value {{ v.wings_tone }}">{{ v.wings_fmt }}</div>
+              </div>
+              <div class="stat">
+                <div class="label">Pres.</div>
+                <div class="value {{ v.presence_tone }}">{{ v.presence_pct }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
         {% endfor %}
-      </tbody>
-    </table>
+      </div>
+    </section>
 
-    <h2>Pipeline</h2>
-    <p class="note">
-      Match rate (last slot): {{ match_rate }}
-      {% if n_raw is not none %} · {{ n_raw }} raw book rows{% endif %}
-      · Daemon health <a href="/health">JSON</a>
-      · Capture daemon <code>127.0.0.1:8091/health</code>
-    </p>
+    <section class="section-gap stack-lg">
+      <div class="row">
+        <h2>3×3 liquidity grid</h2>
+        <span class="pill info">60% of overall</span>
+      </div>
+      <p class="small muted">{{ copy.grid }}</p>
+      <p class="small muted2">
+        {{ copy.grid_tenors }} · {{ meta.scorecard_generated }}
+      </p>
+      <div class="table-wrap">
+        <table class="data striped">
+          <thead>
+            <tr>
+              <th>Cell</th>
+              <th>DTE · landmark</th>
+              {% for col in column_venues %}
+              <th class="num">{{ col.name }}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in grid_rows %}
+            <tr class="row-{{ row.row_tone }}">
+              <td>{{ row.label }}</td>
+              <td class="muted small">{{ row.dte }}</td>
+              {% for cell in row.cells %}
+              <td class="num">{{ cell.fmt }}</td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
 
-    <footer>Generated {{ generated }}. Scores are 0–10 book-quality index (grid 60%, wings 20%, presence 20%). Binance uses slow sampler; ticker-filled names have epsilon size.</footer>
+    <section class="section-gap cards-3">
+      <div class="card">
+        <div class="card-header">
+          <span>Wings · 2.5Δ</span>
+          <span class="pill info">20%</span>
+        </div>
+        <div class="card-body stack">
+          <p class="small muted">{{ copy.wings }}</p>
+          <p class="small muted2">{{ copy.wings_total }}</p>
+          <div class="table-wrap">
+            <table class="data">
+              <thead>
+                <tr>
+                  <th>Tenor · 2.5Δ</th>
+                  {% for col in column_venues %}
+                  <th class="num">{{ col.name }}</th>
+                  {% endfor %}
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in wing_rows %}
+                <tr{% if row.is_total %} class="total"{% endif %}>
+                  <td>{{ row.label }}</td>
+                  {% for cell in row.cells %}
+                  <td class="num">{{ cell.fmt }}</td>
+                  {% endfor %}
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span>Presence</span>
+          <span class="pill info">20%</span>
+        </div>
+        <div class="card-body stack">
+          <p class="small muted">{{ copy.presence }}</p>
+          <div class="table-wrap">
+            <table class="data">
+              <thead>
+                <tr>
+                  <th>Venue</th>
+                  <th class="num">Two-sided</th>
+                  <th class="num">Score</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in presence_rows %}
+                <tr>
+                  <td>{{ row.name }}</td>
+                  <td class="num">{{ row.two_sided }}</td>
+                  <td class="num">{{ row.score_fmt }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">Catalogue</div>
+        <div class="card-body stack">
+          <p class="small muted">{{ copy.catalogue }}</p>
+          <div class="table-wrap">
+            <table class="data">
+              <thead>
+                <tr>
+                  <th>Venue</th>
+                  <th class="num">Catalogue</th>
+                  <th class="num">Instr.</th>
+                  <th class="num">Hub 2-sided</th>
+                  <th class="num">Extras</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in catalogue_rows %}
+                <tr>
+                  <td>{{ row.name }}</td>
+                  <td class="num">{{ row.score_fmt }}</td>
+                  <td class="num">{{ row.n_instruments if row.n_instruments is not none else '—' }}</td>
+                  <td class="num">{{ row.n_hub_two if row.n_hub_two is not none else '—' }}</td>
+                  <td class="num">{{ row.n_extras if row.n_extras is not none else '—' }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {% endif %}
+
+    <footer class="site-footer">
+      <p>{{ footer.disclaimer }}</p>
+      <p><strong>Impressum:</strong> {{ footer.impressum }}</p>
+      <p><strong>Datenschutz:</strong> {{ footer.privacy }}</p>
+      <p>{{ footer.attribution }} · {{ generated }}</p>
+    </footer>
   </div>
 </body>
 </html>

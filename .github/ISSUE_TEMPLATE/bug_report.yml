@@ -1,0 +1,33 @@
+---
+name: Bug report
+description: Report incorrect scores, capture failures, or hub issues
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Include venue, snapshot time (UTC), and expected vs actual behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: Command, config, or URL
+    validations:
+      required: false
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - Capture daemon
+        - Hub / dashboard
+        - Scoring / scorecard
+        - Venue adapter
+        - Docs / deploy
+        - Other
+    validations:
+      required: true

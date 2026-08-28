@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from typing import Any
+from collections.abc import Callable
 
 from cryobookq.config import Settings, get_settings
 from cryobookq.venues.binance import BinanceVenue

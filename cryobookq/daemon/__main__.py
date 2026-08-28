@@ -19,7 +19,6 @@ import logging
 import signal
 import sys
 import time
-from datetime import UTC, datetime
 
 import pandas as pd
 

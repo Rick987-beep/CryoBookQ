@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 1080px;
+      height: 1080px;
+      overflow: hidden;
+      font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+      background: #0f1419;
+      color: #e7ecf1;
+    }
+    .page {
+      position: relative;
+      width: 1080px;
+      height: 1080px;
+      padding: 64px 56px 48px;
+      display: flex;
+      flex-direction: column;
+    }
+    .dots {
+      position: absolute;
+      inset: 0;
+      opacity: 0.22;
+      pointer-events: none;
+    }
+    .inner { position: relative; z-index: 1; display: flex; flex-direction: column; height: 100%; }
+    .eyebrow {
+      color: #6b7a8a;
+      font-size: 28px;
+      font-weight: 600;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    .headline {
+      color: #e7ecf1;
+      font-size: 52px;
+      font-weight: 700;
+      line-height: 1.08;
+      letter-spacing: -0.03em;
+      margin-bottom: 12px;
+    }
+    .blurb {
+      color: #8b9aab;
+      font-size: 28px;
+      line-height: 1.3;
+      max-width: 96%;
+      margin-bottom: 8px;
+    }
+    .header { margin-bottom: 36px; }
+    .rows {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      flex: 1;
+    }
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 22px 24px;
+      border-radius: 12px;
+      border: 1px solid #2a3441;
+      background: #161c24;
+    }
+    .row.leader {
+      background: #1a222c;
+      border: 2px solid #6dcaa4;
+    }
+    .row.hub {
+      background: #c0392b;
+      border: 2px solid #e74c3c;
+    }
+    .row-left { display: flex; align-items: center; gap: 18px; }
+    .badge {
+      min-width: 72px;
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 32px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      text-align: center;
+      line-height: 1;
+      background: #161c24;
+      color: #e7ecf1;
+      border: 1px solid #2a3441;
+    }
+    .row.leader .badge {
+      background: #6dcaa4;
+      color: #0f1419;
+      border: none;
+    }
+    .row.hub .badge {
+      background: #a93226;
+      color: #ffffff;
+      border: none;
+    }
+    .venue { display: flex; flex-direction: column; gap: 4px; }
+    .venue-name {
+      font-size: 40px;
+      font-weight: 600;
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+    }
+    .row.leader .venue-name { font-size: 44px; font-weight: 700; }
+    .row.hub .venue-name,
+    .row.hub .tagline,
+    .row.hub .score { color: #ffffff; }
+    .tagline {
+      font-size: 26px;
+      font-weight: 500;
+      line-height: 1.2;
+      color: #8b9aab;
+    }
+    .row.hub .tagline { color: #ffffff; opacity: 0.95; }
+    .score {
+      font-size: 52px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+      color: #e7ecf1;
+    }
+    .row.leader .score { font-size: 64px; }
+    .footer {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 28px;
+      padding-top: 20px;
+      border-top: 1px solid #2a3441;
+      color: #6b7a8a;
+      font-size: 24px;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <svg class="dots" aria-hidden="true" width="1080" height="1080">
+      <defs>
+        <pattern id="dots" width="28" height="28" patternUnits="userSpaceOnUse">
+          <circle cx="2" cy="2" r="1.2" fill="#2a3441"/>
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#dots)"/>
+    </svg>
+    <div class="inner">
+      <header class="header">
+        <div class="eyebrow">CryoBookQ</div>
+        <h1 class="headline">BTC Options orderbook quality</h1>
+        <p class="blurb">We compared bid-ask spreads and L5 depth on the same BTC option books across five exchanges.</p>
+        <p class="blurb">This is the result: a single score for how tight and deep each venue looks right now.</p>
+      </header>
+      <div class="rows">
+        <div class="row leader">
+          <div class="row-left">
+            <div class="badge">#1</div>
+            <div class="venue"><span class="venue-name">Binance</span></div>
+          </div>
+          <div class="score">7.08</div>
+        </div>
+        <div class="row">
+          <div class="row-left">
+            <div class="badge">#2</div>
+            <div class="venue"><span class="venue-name">OKX</span></div>
+          </div>
+          <div class="score">6.53</div>
+        </div>
+        <div class="row hub">
+          <div class="row-left">
+            <div class="badge">#3</div>
+            <div class="venue">
+              <span class="venue-name">Deribit</span>
+              <span class="tagline">Not in pole position?</span>
+            </div>
+          </div>
+          <div class="score">6.22</div>
+        </div>
+        <div class="row">
+          <div class="row-left">
+            <div class="badge">#4</div>
+            <div class="venue"><span class="venue-name">Bybit</span></div>
+          </div>
+          <div class="score">6.19</div>
+        </div>
+        <div class="row">
+          <div class="row-left">
+            <div class="badge">#5</div>
+            <div class="venue"><span class="venue-name">Coincall</span></div>
+          </div>
+          <div class="score">4.28</div>
+        </div>
+      </div>
+      <footer class="footer">
+        <span>apps.aureas.xyz/bookq</span>
+        <span>2026-08-28</span>
+      </footer>
+    </div>
+  </div>
+</body>
+</html>
