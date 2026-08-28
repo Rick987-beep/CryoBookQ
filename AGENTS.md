@@ -3,6 +3,11 @@
 Canonical product + implementation plan: **[docs/SPEC.md](docs/SPEC.md)**  
 (Cursor copy: `.cursor/plans/exchange_book_comparer.plan.md`)
 
+**Current track:** multi-exchange venues (Bybit, OKX, Binance) — Cursor plan
+`multi-exchange_options_venues_0452f3bf.plan.md`, branch `feat/multi-exchange-venues`.
+See [docs/VENUES.md](docs/VENUES.md) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+Still **no apps deploy** without explicit approval.
+
 This repo is the **orderbook quality comparer** only. Live trading is CryoTrader; backtests are CryoBacktester. Do not import CryoTrader as a package — copy patterns if needed.
 
 ---
@@ -46,7 +51,8 @@ This repo is the **orderbook quality comparer** only. Live trading is CryoTrader
 
 ```bash
 .venv/bin/python -m pytest tests/unit -v          # default
-.venv/bin/python -m pytest tests/live -m live -v  # opt-in; needs network / .env
+# Live: override addopts or `-m live` ANDs with `not live` and collects 0 tests
+.venv/bin/python -m pytest tests/live -m live -o addopts= -v
 ```
 
 Live tests: public market data only — **never place orders**.

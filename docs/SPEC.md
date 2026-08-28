@@ -28,8 +28,8 @@ isProject: false
 
 # CryoBookQ — Exchange orderbook quality comparer
 
-> **Repo status:** M0–M5 + P0 + P1 + **landmark scorecard** (3×3 DTE×Δ, $10k lift, 0–10 multi-venue index).  
-> **Next:** Telegram (optional) then **M6** apps deploy with explicit approval.
+> **Repo status:** M0–M5 + P0 + P1 + landmark scorecard.  
+> **Next:** multi-exchange ME0–ME4 (Bybit, OKX, Binance; see `docs/VENUES.md`) then **M6** apps deploy with explicit approval.
 
 ## Target state (product)
 
@@ -38,7 +38,7 @@ Continuously compare **Deribit vs Coincall** BTC option orderbook quality across
 | Knob | v1 choice |
 |------|-----------|
 | Underlyings | BTC only; venue/collector interface ETH-ready |
-| Venues | Deribit + Coincall; `Venue` Protocol for a third later |
+| Venues | Deribit (hub) + Coincall + Bybit + Binance + OKX; `Venue` Protocol + registry |
 | Cadence | **15 min** UTC (`:00/:15/:30/:45`) |
 | Depth | **Top 5** levels each side |
 | Capture | WS **burst** (not always-on; not full-chain REST L5) |
@@ -405,7 +405,7 @@ Implement as groupby over `pair_scores` with documented session windows in `SCOR
 
 ## Out of scope for v1
 
-- ETH, third exchange, near-strike matching
+- ETH, near-strike matching
 - Always-on book streams / tick-level history
 - Trading / order placement
 - Deploy without explicit approval
