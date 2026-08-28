@@ -37,7 +37,7 @@ def test_venue_error_incomplete_but_peer_usable() -> None:
         },
         requested=["deribit", "coincall"],
     )
-    assert not v.ok
+    assert v.ok
     assert v.incomplete
     assert "coincall" in v.venue_errors
     assert v.coverages["deribit"] == 1.0

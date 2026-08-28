@@ -51,7 +51,15 @@ class HealthState:
                 self.writes_today += 1
             self.last_stats = stats
 
-    def record_incomplete(self, ts_ms: int, stats: dict[str, Any], *, wrote: bool, reason: str) -> None:
+    def record_incomplete(
+        self,
+        ts_ms: int,
+        stats: dict[str, Any],
+        *,
+        wrote: bool,
+        reason: str,
+        gap: bool = False,
+    ) -> None:
         with self._lock:
             self._maybe_roll_day_locked()
             self.last_ts_ms = ts_ms
@@ -59,7 +67,8 @@ class HealthState:
             self.last_incomplete = True
             self.last_error = reason
             self.incomplete_today += 1
-            self.gaps_today += 1
+            if gap:
+                self.gaps_today += 1
             self.snapshots_today += 1
             if wrote:
                 self.writes_today += 1

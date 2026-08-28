@@ -29,9 +29,9 @@ from cryobookq.pipeline.normalize import books_to_raw_rows
 from cryobookq.pipeline.score import score_pairs
 from cryobookq.pipeline.write import ParquetStore
 from cryobookq.types import BookL5
-from cryobookq.venues.coincall import CoincallVenue
-from cryobookq.venues.deribit import DeribitVenue
 from cryobookq.venues._util import BurstStats
+from cryobookq.venues.registry import make_venue
+from cryobookq.venues.spec import SPECS
 from cryobookq.analytics.scorecard import build_scorecard
 
 logger = logging.getLogger(__name__)
@@ -105,52 +105,44 @@ async def run_snapshot(
     index_px: float | None
     try:
         index_px = await asyncio.to_thread(fetch_btc_index)
-    except Exception as exc:  # noqa: BLE001
+    except Exception:  # noqa: BLE001
         logger.exception("index fetch failed")
         index_px = None
-        if "deribit" in venues:
-            raise RuntimeError(f"BTC index required for deribit normalize: {exc}") from exc
 
     ts_ms = int(time.time() * 1000)
     stats: dict[str, Any] = {"index_px": index_px, "disk_free_mb": free}
     inst_meta: dict[str, Any] = {}
 
-    labels: list[str] = []
-    tasks: list[Any] = []
+    labels: list[str] = list(venues)
     n_inst: dict[str, int] = {}
+    timeout_s = float(settings.burst_timeout_s)
 
-    async def _burst_deribit() -> tuple[dict[str, BookL5], BurstStats]:
-        d = DeribitVenue()
-
-        def _load() -> tuple[list, dict]:
-            return cache.get("deribit", settings.underlying)
-
-        inst, meta = await asyncio.to_thread(_load)
-        inst_meta["deribit"] = meta
-        syms = [i.venue_symbol for i in inst]
-        n_inst["deribit"] = len(syms)
-        return await d.burst_books(syms, depth=depth, duration_s=duration_s)
-
-    async def _burst_coincall() -> tuple[dict[str, BookL5], BurstStats]:
-        c = CoincallVenue(settings)
+    async def _burst_one(name: str) -> tuple[dict[str, BookL5], BurstStats]:
+        venue = make_venue(name, settings)
 
         def _load() -> tuple[list, dict]:
-            return cache.get("coincall", settings.underlying, coincall=c)
+            return cache.get(name, settings.underlying, instance=venue)
 
         inst, meta = await asyncio.to_thread(_load)
-        inst_meta["coincall"] = meta
+        inst_meta[name] = meta
+        spec = SPECS.get(name)
+        if index_px is None and spec is not None and spec.price_ccy == "BTC":
+            raise RuntimeError(f"BTC index required to normalize {name}")
         syms = [i.venue_symbol for i in inst]
-        n_inst["coincall"] = len(syms)
-        return await c.burst_books(syms, depth=depth, duration_s=duration_s)
+        n_inst[name] = len(syms)
+        return await venue.burst_books(syms, depth=depth, duration_s=duration_s)
 
-    if "deribit" in venues:
-        labels.append("deribit")
-        tasks.append(_burst_deribit())
-    if "coincall" in venues:
-        labels.append("coincall")
-        tasks.append(_burst_coincall())
+    async def _isolated(name: str) -> tuple[dict[str, BookL5], BurstStats] | BaseException:
+        try:
+            return await asyncio.wait_for(_burst_one(name), timeout=timeout_s)
+        except TimeoutError as exc:
+            logger.error("Venue %s timed out after %.1fs", name, timeout_s)
+            return exc
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("Venue %s failed", name)
+            return exc
 
-    gathered = await asyncio.gather(*tasks, return_exceptions=True)
+    gathered = await asyncio.gather(*[_isolated(n) for n in labels], return_exceptions=True)
 
     venue_stats: dict[str, dict[str, Any]] = {}
     books_by_venue: dict[str, dict[str, BookL5]] = {}
@@ -176,10 +168,7 @@ async def run_snapshot(
         stats[label] = d
         stats[f"{label}_n_instruments"] = d["n_instruments"]
 
-    floors = {
-        "deribit": settings.coverage_floor_deribit,
-        "coincall": settings.coverage_floor_coincall,
-    }
+    floors = settings.coverage_floors()
     quality = evaluate_quality(venue_stats, requested=labels, floors=floors)
     stats["quality"] = quality.to_dict()
     stats["instruments"] = inst_meta
@@ -202,16 +191,25 @@ async def run_snapshot(
     stats["deltas_available"] = len(deltas)
 
     raw_rows: list[dict] = []
-    assert index_px is not None or "deribit" not in books_by_venue
+    norm_index = index_px if index_px is not None else 1.0
     for label, books in books_by_venue.items():
         st = venue_stats[label]
-        if not books or index_px is None:
+        spec = SPECS.get(label)
+        if spec is not None and spec.price_ccy == "BTC" and index_px is None:
+            logger.warning("Skipping %s rows: no BTC index", label)
+            continue
+        floor = floors.get(label, 0.8)
+        met = (
+            label not in quality.venue_errors
+            and float(st.get("coverage") or 0.0) >= floor
+        )
+        if not books or (not met and not force_write):
             continue
         raw_rows.extend(
             books_to_raw_rows(
                 books,
                 ts_ms=ts_ms,
-                index_px=index_px,
+                index_px=norm_index,
                 capture_lag_ms=st.get("capture_lag_ms"),
             )
         )

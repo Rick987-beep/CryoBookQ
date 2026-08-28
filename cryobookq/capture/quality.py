@@ -1,18 +1,18 @@
-"""Snapshot quality gate — coverage floors before accepting a write.
-
-Incomplete bursts must not look like healthy forever-data. Tickrecorder skips
-low-coverage snapshots; we mirror that with per-venue floors.
-"""
+"""Snapshot quality gate — per-venue floors; overall ok = hub (Deribit)."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any
 
+HUB = "deribit"
 
 DEFAULT_FLOORS = {
     "deribit": 0.90,
     "coincall": 0.80,
+    "bybit": 0.80,
+    "okx": 0.80,
+    "binance": 0.80,
 }
 
 
@@ -21,11 +21,11 @@ class QualityVerdict:
     """Outcome of evaluating burst stats against coverage floors."""
 
     ok: bool
-    """True when every *requested* venue that did not hard-error meets its floor
-    and at least one venue produced usable books."""
+    """True when the listing hub (Deribit) met its floor, or — if hub was not
+    requested — at least one venue met its floor."""
 
     incomplete: bool
-    """True when the snapshot should be treated as a gap/incomplete (not ok)."""
+    """True when any requested venue failed or missed its floor."""
 
     reasons: tuple[str, ...] = ()
     coverages: dict[str, float] = field(default_factory=dict)
@@ -46,24 +46,13 @@ def evaluate_quality(
     *,
     requested: list[str],
     floors: dict[str, float] | None = None,
+    hub: str = HUB,
 ) -> QualityVerdict:
-    """Evaluate per-venue burst stats.
-
-    Parameters
-    ----------
-    venue_stats:
-        Mapping venue → stats dict. Erroring venues should include
-        ``{"error": "...", "coverage": 0.0, "n_with_update": 0, ...}``.
-    requested:
-        Venues that were asked to participate this snapshot.
-    floors:
-        Minimum coverage ratios; defaults :data:`DEFAULT_FLOORS`.
-    """
     floors = {**DEFAULT_FLOORS, **(floors or {})}
     reasons: list[str] = []
     coverages: dict[str, float] = {}
     errors: dict[str, str] = {}
-    usable = 0
+    met: set[str] = set()
 
     for venue in requested:
         st = venue_stats.get(venue) or {}
@@ -79,23 +68,18 @@ def evaluate_quality(
         if cov < floor:
             reasons.append(f"{venue}:coverage {cov:.2%} < floor {floor:.0%}")
             continue
-        usable += 1
+        met.add(venue)
 
-    # Accept if every non-error venue met its floor AND at least one usable.
-    # If a venue hard-errored, the snapshot is incomplete even if the peer is fine
-    # (we may still write the peer's rows — caller decides).
-    all_ok = usable == len(requested) and not errors and not reasons
-    # Partial success: at least one venue met floor, but peer failed → incomplete write OK
-    partial = usable >= 1 and (bool(errors) or bool(reasons))
-    ok = all_ok
-    incomplete = not all_ok
-    if usable == 0:
+    hub_requested = hub in requested
+    if hub_requested:
+        ok = hub in met
+    else:
+        ok = bool(met)
+    incomplete = bool(reasons) or bool(errors) or not met
+    if not met:
         reasons.append("no_venue_met_coverage_floor")
-        incomplete = True
         ok = False
-    elif partial and not reasons:
-        # errors already recorded
-        pass
+        incomplete = True
 
     return QualityVerdict(
         ok=ok,

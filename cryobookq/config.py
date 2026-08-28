@@ -34,6 +34,10 @@ class Settings:
     # P0 quality / disk
     coverage_floor_deribit: float = 0.90
     coverage_floor_coincall: float = 0.80
+    coverage_floor_bybit: float = 0.80
+    coverage_floor_okx: float = 0.80
+    coverage_floor_binance: float = 0.80
+    burst_timeout_s: float = 25.0
     disk_free_warn_mb: int = 5000
     disk_free_abort_mb: int = 500
     # P1
@@ -43,6 +47,15 @@ class Settings:
     @property
     def has_coincall_creds(self) -> bool:
         return bool(self.coincall_api_key and self.coincall_api_secret)
+
+    def coverage_floors(self) -> dict[str, float]:
+        return {
+            "deribit": self.coverage_floor_deribit,
+            "coincall": self.coverage_floor_coincall,
+            "bybit": self.coverage_floor_bybit,
+            "okx": self.coverage_floor_okx,
+            "binance": self.coverage_floor_binance,
+        }
 
 
 def get_settings(*, load: bool = True) -> Settings:
@@ -63,6 +76,10 @@ def get_settings(*, load: bool = True) -> Settings:
         telegram_chat_id=os.getenv("TELEGRAM_CHAT_ID") or None,
         coverage_floor_deribit=float(os.getenv("BOOKQ_COVERAGE_FLOOR_DERIBIT", "0.90")),
         coverage_floor_coincall=float(os.getenv("BOOKQ_COVERAGE_FLOOR_COINCALL", "0.80")),
+        coverage_floor_bybit=float(os.getenv("BOOKQ_COVERAGE_FLOOR_BYBIT", "0.80")),
+        coverage_floor_okx=float(os.getenv("BOOKQ_COVERAGE_FLOOR_OKX", "0.80")),
+        coverage_floor_binance=float(os.getenv("BOOKQ_COVERAGE_FLOOR_BINANCE", "0.80")),
+        burst_timeout_s=float(os.getenv("BOOKQ_BURST_TIMEOUT_S", "25")),
         disk_free_warn_mb=int(os.getenv("BOOKQ_DISK_FREE_WARN_MB", "5000")),
         disk_free_abort_mb=int(os.getenv("BOOKQ_DISK_FREE_ABORT_MB", "500")),
         instrument_cache_ttl_s=float(os.getenv("BOOKQ_INSTRUMENT_CACHE_TTL_S", "1800")),

@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 
 from cryobookq.types import Instrument
 from cryobookq.venues.coincall import CoincallVenue
-from cryobookq.venues.deribit import DeribitVenue
+from cryobookq.venues.registry import make_venue
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +42,7 @@ class InstrumentCache:
         underlying: str,
         *,
         coincall: CoincallVenue | None = None,
+        instance: object | None = None,
         force: bool = False,
     ) -> tuple[list[Instrument], dict]:
         """Return ``(instruments, meta)``.
@@ -69,7 +70,9 @@ class InstrumentCache:
                 }
 
         try:
-            instruments = self._fetch(venue, underlying, coincall=coincall)
+            instruments = self._fetch(
+                venue, underlying, coincall=coincall, instance=instance
+            )
         except Exception as exc:
             with self._lock:
                 entry = self._entries.get(key)
@@ -112,13 +115,15 @@ class InstrumentCache:
         underlying: str,
         *,
         coincall: CoincallVenue | None,
+        instance: object | None = None,
     ) -> list[Instrument]:
-        if venue == "deribit":
-            return DeribitVenue().list_instruments(underlying)
-        if venue == "coincall":
-            v = coincall or CoincallVenue()
-            return v.list_instruments(underlying)
-        raise ValueError(f"unknown venue {venue!r}")
+        venue_obj = instance
+        if venue_obj is None:
+            if coincall is not None and venue == "coincall":
+                venue_obj = coincall
+            else:
+                venue_obj = make_venue(venue)
+        return venue_obj.list_instruments(underlying)  # type: ignore[union-attr]
 
     def invalidate(self, venue: str | None = None) -> None:
         with self._lock:

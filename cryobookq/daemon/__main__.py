@@ -44,16 +44,26 @@ def _record_result(result) -> None:  # SnapshotResult
         HEALTH.record_success(result.ts_ms, result.stats, wrote=True)
         return
     reason = "; ".join(q.reasons) if q and q.reasons else "incomplete_or_no_write"
-    if q is not None and (q.incomplete or not result.wrote):
+    if q is not None and q.ok:
         HEALTH.record_incomplete(
             result.ts_ms,
             result.stats,
             wrote=result.wrote,
             reason=reason,
+            gap=False,
         )
-    else:
-        HEALTH.record_failure(reason)
-        HEALTH.record_gap()
+        return
+    if q is not None and q.incomplete:
+        HEALTH.record_incomplete(
+            result.ts_ms,
+            result.stats,
+            wrote=result.wrote,
+            reason=reason,
+            gap=True,
+        )
+        return
+    HEALTH.record_failure(reason)
+    HEALTH.record_gap()
 
 
 async def _ensure_clock(clock: ExchangeClock, *, resync_every_s: float, force: bool = False) -> None:
