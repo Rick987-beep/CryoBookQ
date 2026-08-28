@@ -24,7 +24,8 @@ RAW_BOOK_COLUMNS = [
     "mark_px",
     "delta",
     "capture_lag_ms",
-    "price_unit",  # "USD" after normalize; "BTC" or "USD" for raw venue-native
+    "price_unit",  # "USD" after normalize
+    "size_to_btc",
     "bid_px_1",
     "bid_px_2",
     "bid_px_3",

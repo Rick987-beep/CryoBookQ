@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 import pandas as pd
+import pytest
 
 from cryobookq.analytics.scorecard import (
     aggregate_scorecards,
@@ -276,3 +277,69 @@ def test_build_scorecard_period_from_raw_df() -> None:
         raise AssertionError("expected ValueError")
     except ValueError:
         pass
+
+
+def test_hub_without_coincall_still_scores_deribit() -> None:
+    ts = 1_700_000_000_000
+    pairs = []
+    for dte in [1.0, 2.0, 7.0, 14.0, 21.0, 60.0, 90.0, 120.0]:
+        exp = ts + int(dte * 86400_000)
+        for is_call, delta in [(True, 0.50), (False, -0.50), (True, 0.25), (False, -0.25),
+                               (True, 0.075), (False, -0.075), (True, 0.025), (False, -0.025)]:
+            key = OptionKey("BTC", exp, 80_000.0, is_call)
+            d_row = _book_row(
+                venue="deribit", key=key, delta=delta, bid=200.0, ask=204.0,
+                bid_sz=30.0, ask_sz=30.0, deeper=True,
+            )
+            pairs.append(MatchedPair(key=key, deribit=d_row, coincall=None))
+    card = build_scorecard(pairs, ts_ms=ts)
+    assert "deribit" in card.overall
+    assert card.overall["deribit"] > 0
+    assert "coincall" not in card.overall or card.overall.get("coincall", 0) == 0
+
+
+def test_third_venue_missing_does_not_change_deribit() -> None:
+    ts = 1_700_000_000_000
+    two = []
+    three = []
+    for dte in [1.0, 2.0, 7.0, 14.0, 21.0, 60.0, 90.0, 120.0]:
+        exp = ts + int(dte * 86400_000)
+        for is_call, delta in [(True, 0.50), (False, -0.50), (True, 0.25), (False, -0.25),
+                               (True, 0.075), (False, -0.075), (True, 0.025), (False, -0.025)]:
+            key = OptionKey("BTC", exp, 80_000.0, is_call)
+            d_row = _book_row(
+                venue="deribit", key=key, delta=delta, bid=200.0, ask=204.0,
+                bid_sz=30.0, ask_sz=30.0, deeper=True,
+            )
+            c_row = _book_row(
+                venue="coincall", key=key, delta=delta, bid=190.0, ask=220.0,
+                bid_sz=1.0, ask_sz=1.0, deeper=True,
+            )
+            two.append(MatchedPair(key=key, deribit=d_row, coincall=c_row))
+            three.append(
+                MatchedPair(
+                    key=key,
+                    deribit=d_row,
+                    coincall=c_row,
+                    books={"bybit": None},
+                )
+            )
+    a = build_scorecard(two, ts_ms=ts)
+    b = build_scorecard(three, ts_ms=ts)
+    assert a.overall["deribit"] == pytest.approx(b.overall["deribit"])
+    assert a.overall["coincall"] == pytest.approx(b.overall["coincall"])
+
+
+def test_presence_independent_per_venue() -> None:
+    from cryobookq.analytics.scorecard import presence_scores
+    from cryobookq.pipeline.match import MatchedContract
+
+    key = OptionKey("BTC", 1_700_000_000_000, 80_000.0, True)
+    d = _book_row(venue="deribit", key=key, delta=0.5, bid=100.0, ask=110.0)
+    a_ok = _book_row(venue="bybit", key=key, delta=0.5, bid=100.0, ask=110.0)
+    b_one = _book_row(venue="okx", key=key, delta=0.5, bid=100.0, ask=0.0)
+    p = MatchedContract(key=key, books={"deribit": d, "bybit": a_ok, "okx": b_one})
+    out = presence_scores([p], ["deribit", "bybit", "okx"])
+    assert out["per_venue"]["bybit"]["two_sided_rate"] == 1.0
+    assert out["per_venue"]["okx"]["two_sided_rate"] == 0.0
+

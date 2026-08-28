@@ -221,9 +221,11 @@ async def run_snapshot(
     scorecard_obj = build_scorecard(pairs, ts_ms=ts_ms) if pairs else None
     scorecard = scorecard_obj.to_dict() if scorecard_obj else None
     matched = sum(1 for p in pairs if p.match_status == "matched")
+    n_hub = sum(1 for p in pairs if p.has_hub)
     stats["n_raw"] = len(raw_rows)
     stats["n_pairs"] = len(pairs)
     stats["n_matched"] = matched
+    stats["n_hub"] = n_hub
     stats["match_rate"] = matched / len(pairs) if pairs else 0.0
     stats["ts_iso"] = datetime.fromtimestamp(ts_ms / 1000, tz=UTC).isoformat()
     if scorecard_obj is not None:

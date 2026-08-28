@@ -31,7 +31,7 @@ from typing import Any
 
 import pandas as pd
 
-from cryobookq.pipeline.match import MatchedPair, match_raw_rows
+from cryobookq.pipeline.match import MatchedContract, match_raw_rows
 from cryobookq.pipeline.score import dte_for, venue_metrics
 
 logger = logging.getLogger(__name__)
@@ -222,12 +222,12 @@ class LandmarkPick:
     delta_label: str
     target_delta: float
     is_call: bool
-    pair: MatchedPair
+    pair: MatchedContract
     abs_delta: float
 
 
-def _pair_abs_delta(pair: MatchedPair) -> float | None:
-    for row in (pair.deribit, pair.coincall):
+def _pair_abs_delta(pair: MatchedContract) -> float | None:
+    for row in pair.books.values():
         if row is None:
             continue
         d = row.get("delta")
@@ -239,11 +239,15 @@ def _pair_abs_delta(pair: MatchedPair) -> float | None:
     return None
 
 
-def _expiries(pairs: list[MatchedPair], ts_ms: int) -> dict[int, float]:
-    """expiry_utc_ms → dte."""
+def _hub_pairs(pairs: list[MatchedContract]) -> list[MatchedContract]:
+    return [p for p in pairs if p.has_hub]
+
+
+def _expiries(pairs: list[MatchedContract], ts_ms: int) -> dict[int, float]:
+    """expiry_utc_ms → dte (hub / Deribit-listed only)."""
     out: dict[int, float] = {}
     for p in pairs:
-        if p.match_status != "matched":
+        if not p.has_hub:
             continue
         exp = p.key.expiry_utc_ms
         out[exp] = dte_for(exp, ts_ms)
@@ -265,16 +269,16 @@ def nearest_expiry(
 
 
 def nearest_pair(
-    pairs: list[MatchedPair],
+    pairs: list[MatchedContract],
     *,
     expiry_utc_ms: int,
     target_abs_delta: float,
     is_call: bool,
     max_delta_gap: float = MAX_DELTA_GAP,
 ) -> LandmarkPick | None:
-    candidates: list[tuple[float, MatchedPair, float]] = []
+    candidates: list[tuple[float, MatchedContract, float]] = []
     for p in pairs:
-        if p.match_status != "matched":
+        if not p.has_hub:
             continue
         if p.key.expiry_utc_ms != expiry_utc_ms or p.key.is_call != is_call:
             continue
@@ -328,23 +332,17 @@ def contract_metrics(row: dict[str, Any] | None, *, delta_label: str) -> dict[st
     }
 
 
-def _row_for_venue(pair: MatchedPair | None, venue: str) -> dict[str, Any] | None:
+def _row_for_venue(pair: MatchedContract | None, venue: str) -> dict[str, Any] | None:
     if pair is None:
         return None
-    if venue == "deribit":
-        return pair.deribit
-    if venue == "coincall":
-        return pair.coincall
-    for row in (pair.deribit, pair.coincall):
-        if row is not None and row.get("venue") == venue:
-            return row
-    return None
+    row = pair.books.get(venue)
+    return row
 
 
 def _avg_call_put(
     venues: list[str],
-    call_pair: MatchedPair | None,
-    put_pair: MatchedPair | None,
+    call_pair: MatchedContract | None,
+    put_pair: MatchedContract | None,
     *,
     delta_label: str,
 ) -> dict[str, Any]:
@@ -365,17 +363,16 @@ def _avg_call_put(
     return per_venue
 
 
-def _venues_from_pairs(pairs: list[MatchedPair]) -> list[str]:
+def _venues_from_pairs(pairs: list[MatchedContract]) -> list[str]:
     found: set[str] = set()
     for p in pairs:
-        for row in (p.deribit, p.coincall):
-            if row and row.get("venue"):
-                found.add(str(row["venue"]))
-    # Stable preferred order, then any extras
-    preferred = ["deribit", "coincall"]
+        for name, row in p.books.items():
+            if row is not None:
+                found.add(str(name))
+    preferred = ["deribit", "coincall", "bybit", "okx", "binance"]
     out = [v for v in preferred if v in found]
     out.extend(sorted(found - set(out)))
-    return out or preferred
+    return out or ["deribit", "coincall"]
 
 
 @dataclass
@@ -402,20 +399,20 @@ class ScorecardResult:
         }
 
 
-def presence_scores(pairs: list[MatchedPair], venues: list[str]) -> dict[str, Any]:
-    matched = [p for p in pairs if p.match_status == "matched"]
+def presence_scores(pairs: list[MatchedContract], venues: list[str]) -> dict[str, Any]:
+    hub = _hub_pairs(pairs)
     eligible = []
-    for p in matched:
+    for p in hub:
         ad = _pair_abs_delta(p)
         if ad is not None and ad >= PRESENCE_MIN_ABS_DELTA:
             eligible.append(p)
-    base = eligible or matched
+    base = eligible or hub
     out: dict[str, Any] = {"n_eligible": len(base), "per_venue": {}}
     for v in venues:
         n_two = 0
         n = 0
         for p in base:
-            row = p.deribit if v == "deribit" else p.coincall if v == "coincall" else _row_for_venue(p, v)
+            row = _row_for_venue(p, v)
             if row is None:
                 continue
             n += 1
@@ -432,7 +429,7 @@ def presence_scores(pairs: list[MatchedPair], venues: list[str]) -> dict[str, An
 
 
 def _cell_for_tenor_delta(
-    pairs: list[MatchedPair],
+    pairs: list[MatchedContract],
     expiries: dict[int, float],
     venues: list[str],
     *,
@@ -514,9 +511,9 @@ def _cell_for_tenor_delta(
     return cell
 
 
-def build_scorecard(pairs: list[MatchedPair], *, ts_ms: int) -> ScorecardResult:
+def build_scorecard(pairs: list[MatchedContract], *, ts_ms: int) -> ScorecardResult:
     venues = _venues_from_pairs(pairs)
-    matched = [p for p in pairs if p.match_status == "matched"]
+    matched = _hub_pairs(pairs)
     expiries = _expiries(matched, ts_ms)
     landmarks: list[dict[str, Any]] = []
 

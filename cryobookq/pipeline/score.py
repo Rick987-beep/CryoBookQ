@@ -6,7 +6,7 @@ import math
 from datetime import UTC, datetime
 from typing import Any
 
-from cryobookq.pipeline.match import MatchedPair
+from cryobookq.pipeline.match import MatchedContract
 
 # Composite weights (documented in docs/SCORING.md). Lower spread / cost is better;
 # higher depth is better. Each component is 0–1 after normalization within the pair.
@@ -201,7 +201,7 @@ def composite_scores(d: dict[str, Any], c: dict[str, Any]) -> tuple[float, float
     return der, coin
 
 
-def score_pair(pair: MatchedPair, *, ts_ms: int) -> dict[str, Any]:
+def score_pair(pair: MatchedContract, *, ts_ms: int) -> dict[str, Any]:
     d = venue_metrics(pair.deribit)
     c = venue_metrics(pair.coincall)
     abs_delta = None
@@ -271,5 +271,5 @@ def score_pair(pair: MatchedPair, *, ts_ms: int) -> dict[str, Any]:
     }
 
 
-def score_pairs(pairs: list[MatchedPair], *, ts_ms: int) -> list[dict[str, Any]]:
+def score_pairs(pairs: list[MatchedContract], *, ts_ms: int) -> list[dict[str, Any]]:
     return [score_pair(p, ts_ms=ts_ms) for p in pairs]

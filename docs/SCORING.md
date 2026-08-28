@@ -9,9 +9,14 @@ Legacy equal-weight `winner_*` columns remain in `pair_scores` for research; **t
 |---------|------------|
 | **3×3 grid** | Tenors × \|Δ\| targets (below) |
 | **Wings** | Same tenors at \|Δ\| ≈ **0.025** |
-| **Presence** | Two-sided rate among **matched** options with \|Δ\| ≥ 0.05 |
+| **Presence** | Two-sided rate among **hub (Deribit-listed)** options this venue also listed, with \|Δ\| ≥ 0.05 |
 
-Only **matched** contracts enter landmark selection.
+Only **hub** contracts (Deribit listed this snapshot) enter landmark selection.
+Other venues are looked up independently. Missing book → that venue’s cell is 0;
+peers are unchanged. Never require an N-way intersection.
+
+USD: prices are USD premium per 1 BTC of option; depth and $10k lift use
+**premium notional** `px_usd × sz_btc` after `size_to_btc` (see `docs/VENUES.md`).
 
 ### Tenors (nearest listed expiry per target, then average)
 

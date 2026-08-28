@@ -47,6 +47,7 @@ class BookL5:
     index_px: float | None = None
     mark_px: float | None = None
     delta: float | None = None
+    size_to_btc: float | None = None
 
     def __post_init__(self) -> None:
         for name in ("bid_px", "bid_sz", "ask_px", "ask_sz"):

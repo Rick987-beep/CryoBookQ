@@ -1,28 +1,46 @@
-"""Normalize venue-native books to USD prices + BTC sizes."""
+"""Normalize venue-native books to USD prices + BTC sizes.
+
+The only unit-conversion site. Adapters must emit native px/sz.
+"""
 
 from __future__ import annotations
 
 from cryobookq.types import BookL5
+from cryobookq.venues.spec import VenueSpec, spec_for
 
 
-def normalize_book(book: BookL5, *, index_px: float, capture_lag_ms: float | None = None) -> dict:
-    """Return a raw_books row dict with USD prices and BTC sizes.
-
-    Deribit option prices are in BTC; multiply by index for USD.
-    Coincall option prices are already USD.
-    Sizes on both venues are treated as BTC notional (M3 sanity elsewhere).
-    """
+def normalize_book(
+    book: BookL5,
+    *,
+    index_px: float,
+    capture_lag_ms: float | None = None,
+    spec: VenueSpec | None = None,
+) -> dict:
+    """Return a raw_books row dict with USD prices and BTC sizes."""
     if index_px <= 0:
         raise ValueError(f"index_px must be > 0, got {index_px}")
 
-    if book.venue == "deribit":
-        bid_px = [p * index_px if p else 0.0 for p in book.bid_px]
-        ask_px = [p * index_px if p else 0.0 for p in book.ask_px]
-        mark = (book.mark_px * index_px) if book.mark_px is not None else None
-    else:
-        bid_px = list(book.bid_px)
-        ask_px = list(book.ask_px)
-        mark = book.mark_px
+    try:
+        spec = spec or spec_for(book.venue)
+    except KeyError:
+        spec = VenueSpec(book.venue, "USD", 1.0)
+
+    size_to_btc = book.size_to_btc if book.size_to_btc and book.size_to_btc > 0 else spec.size_to_btc
+    btc_premium = spec.price_ccy == "BTC"
+
+    def _px(p: float) -> float:
+        if not p:
+            return 0.0
+        return p * index_px if btc_premium else p
+
+    bid_px = [_px(p) for p in book.bid_px]
+    ask_px = [_px(p) for p in book.ask_px]
+    mark = book.mark_px
+    if mark is not None and btc_premium:
+        mark = mark * index_px
+
+    bid_sz = [s * size_to_btc if s else 0.0 for s in book.bid_sz]
+    ask_sz = [s * size_to_btc if s else 0.0 for s in book.ask_sz]
 
     key = book.key
     row = {
@@ -37,12 +55,13 @@ def normalize_book(book: BookL5, *, index_px: float, capture_lag_ms: float | Non
         "delta": book.delta,
         "capture_lag_ms": capture_lag_ms,
         "price_unit": "USD",
+        "size_to_btc": size_to_btc,
     }
     for i in range(5):
         row[f"bid_px_{i + 1}"] = bid_px[i]
-        row[f"bid_sz_{i + 1}"] = book.bid_sz[i]
+        row[f"bid_sz_{i + 1}"] = bid_sz[i]
         row[f"ask_px_{i + 1}"] = ask_px[i]
-        row[f"ask_sz_{i + 1}"] = book.ask_sz[i]
+        row[f"ask_sz_{i + 1}"] = ask_sz[i]
     return row
 
 
