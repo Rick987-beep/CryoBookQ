@@ -187,6 +187,7 @@ Ops runbook: [docs/OPS.md](docs/OPS.md). **Do not deploy or wipe production `dat
 
 | Document | Contents |
 |----------|----------|
+| [CHANGELOG.md](CHANGELOG.md) | Release notes |
 | [docs/SPEC.md](docs/SPEC.md) | Product spec and milestones |
 | [docs/SCORING.md](docs/SCORING.md) | Scorecard math and 0–10 maps |
 | [docs/VENUES.md](docs/VENUES.md) | Exchange adapters and units |
