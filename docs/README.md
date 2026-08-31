@@ -1,6 +1,7 @@
 # Docs index
 
 Start with the root [README](../README.md) for overview and quick start.
+Release notes: [CHANGELOG.md](../CHANGELOG.md).
 
 | Doc | Contents |
 |-----|----------|

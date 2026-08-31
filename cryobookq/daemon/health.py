@@ -39,14 +39,25 @@ class HealthState:
     _day_utc: str | None = None
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
-    def record_success(self, ts_ms: int, stats: dict[str, Any], *, wrote: bool) -> None:
+    def record_success(
+        self,
+        ts_ms: int,
+        stats: dict[str, Any],
+        *,
+        wrote: bool,
+        incomplete: bool = False,
+        reason: str | None = None,
+    ) -> None:
+        """Record a hub-OK write. Peer misses set *incomplete* without a gap."""
         with self._lock:
             self._maybe_roll_day_locked()
             self.last_ts_ms = ts_ms
             self.last_ok = True
-            self.last_incomplete = False
-            self.last_error = None
+            self.last_incomplete = incomplete
+            self.last_error = reason if incomplete else None
             self.snapshots_today += 1
+            if incomplete:
+                self.incomplete_today += 1
             if wrote:
                 self.writes_today += 1
             self.last_stats = stats
@@ -118,7 +129,9 @@ class HealthState:
             self._maybe_roll_day_locked()
             free = disk_free_mb(self.data_dir) if self.data_dir else -1
             status = "ok"
-            if not self.last_ok:
+            if self.last_incomplete and self.last_ok:
+                status = "incomplete"
+            elif not self.last_ok:
                 status = "incomplete" if self.last_incomplete else "degraded"
             if free != -1 and free < self.disk_free_warn_mb:
                 status = "disk_warn" if status == "ok" else status

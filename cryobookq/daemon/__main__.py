@@ -39,10 +39,18 @@ def _parse_venues(s: str) -> list[str]:
 
 def _record_result(result) -> None:  # SnapshotResult
     q = result.quality
-    if q is not None and q.ok and result.wrote:
-        HEALTH.record_success(result.ts_ms, result.stats, wrote=True)
-        return
     reason = "; ".join(q.reasons) if q and q.reasons else "incomplete_or_no_write"
+    # Hub OK + wrote: success path. Peer misses still increment incomplete_today
+    # (previously swallowed by early return when quality.ok).
+    if q is not None and q.ok and result.wrote:
+        HEALTH.record_success(
+            result.ts_ms,
+            result.stats,
+            wrote=True,
+            incomplete=bool(q.incomplete),
+            reason=reason if q.incomplete else None,
+        )
+        return
     if q is not None and q.ok:
         HEALTH.record_incomplete(
             result.ts_ms,

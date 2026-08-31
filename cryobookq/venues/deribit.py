@@ -169,7 +169,7 @@ class DeribitVenue:
                 self.ws_url,
                 ping_interval=20,
                 ping_timeout=20,
-                close_timeout=5,
+                close_timeout=1,
                 max_size=16 * 1024 * 1024,
             ) as ws:
                 channels = [_channel(s, depth) for s in symbols]
@@ -242,13 +242,8 @@ class DeribitVenue:
                             ask_sz=ask_sz,
                         )
 
-                # Best-effort unsubscribe
-                try:
-                    for i in range(0, len(channels), _SUBSCRIBE_BATCH):
-                        batch = channels[i : i + _SUBSCRIBE_BATCH]
-                        await send(ws, "public/unsubscribe", {"channels": batch})
-                except Exception as exc:  # noqa: BLE001
-                    notes.append(f"unsubscribe_failed:{exc}")
+                # Drop WS instead of batch-unsubscribe — same budget race as Coincall.
+                notes.append("teardown=drop_ws")
 
         except Exception as exc:  # noqa: BLE001
             errors.append(f"connect:{exc}")

@@ -48,9 +48,13 @@ Do not store size as dollars of BTC underlying (`sz_btc × index`).
 | Coincall | WS `orderBook` batches of 100 | Signed URL. Full chain by ~10s. |
 | Bybit | WS `orderbook.25.{symbol}` snapshot+delta | Public. Full chain by ~10s. Apply deltas (not first snapshot only). |
 | OKX | WS `books5` | Public. Snapshot every 100ms when changed. Full chain by ~10s. |
-| Binance | Slow sampler: 4 WS connections × ≤200 streams, SUBSCRIBE paced at 5 msg/s, listen ~30s with peers; REST depth for silent names (~2.5 req/s wall, stop before used-weight 400/min); ticker TOB last resort | `nbstream` is 404; use `fstream`. Depth streams are update-driven (quiet wings send nothing). Live `REQUEST_WEIGHT` is **400/min**, depth weight 2. `wait_for` for Binance is 90s; other venues `BOOKQ_BURST_TIMEOUT_S` (~40s). Ticker fills have epsilon size (spread/presence, not real L5). First apps enable: Deribit+Coincall+Bybit+OKX until a soak proves ≥80% coverage. |
+| Binance | Slow sampler: 4 WS connections × ≤200 streams, SUBSCRIBE paced at 5 msg/s, listen ~30s with peers; REST depth for silent names (~2.5 req/s wall, stop before used-weight 400/min); ticker TOB last resort | `nbstream` is 404; use `fstream`. Depth streams are update-driven (quiet wings send nothing). Live `REQUEST_WEIGHT` is **400/min**, depth weight 2. `wait_for` for Binance is 90s; other venues `BOOKQ_BURST_TIMEOUT_S` (~55s). Ticker fills have epsilon size (spread/presence, not real L5). First apps enable: Deribit+Coincall+Bybit+OKX until a soak proves ≥80% coverage. |
 
 Isolation: per-venue `asyncio.wait_for`; a hang/error skips that venue for the slot.
-`quality.ok` = Deribit (hub) met its coverage floor.
+`quality.ok` = Deribit (hub) met its coverage floor. Peer misses set `quality.incomplete`
+and increment health `incomplete_today` without counting a daemon gap.
+
+Coincall/Deribit teardown drops the WebSocket after collect (no batch unsubscribe) so a
+slow close handshake cannot cancel a burst that already reached full coverage.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for models, imports, and 24h hardening.

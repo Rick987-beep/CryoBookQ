@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cryobookq"
-version = "0.1.0"
+version = "0.1.1"
 description = "Multi-exchange BTC option orderbook quality comparer (Deribit hub vs Coincall, Bybit, OKX, Binance)"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -20,11 +20,6 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Topic :: Office/Business :: Financial :: Investment",
 ]
-[project.urls]
-Homepage = "https://github.com/Rick987-beep/CryoBookQ"
-Documentation = "https://github.com/Rick987-beep/CryoBookQ/blob/main/docs/README.md"
-Repository = "https://github.com/Rick987-beep/CryoBookQ"
-Issues = "https://github.com/Rick987-beep/CryoBookQ/issues"
 dependencies = [
     "numpy>=1.26",
     "pandas>=2.2",
@@ -33,6 +28,12 @@ dependencies = [
     "requests>=2.31",
     "python-dotenv>=1.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/Rick987-beep/CryoBookQ"
+Documentation = "https://github.com/Rick987-beep/CryoBookQ/blob/main/docs/README.md"
+Repository = "https://github.com/Rick987-beep/CryoBookQ"
+Issues = "https://github.com/Rick987-beep/CryoBookQ/issues"
 
 [project.optional-dependencies]
 dev = [

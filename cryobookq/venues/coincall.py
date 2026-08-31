@@ -203,10 +203,13 @@ class CoincallVenue:
             notes.append("ws_auth=none")
 
         try:
+            # close_timeout must stay tiny: collect ends ~35s into a 40–55s
+            # wait_for; a hung close handshake previously ate the full 5s and
+            # cancelled bursts that already had 100% coverage (discarding books).
             async with websockets.connect(
                 url,
                 ping_interval=None,  # Coincall uses app-level heartbeat
-                close_timeout=5,
+                close_timeout=1,
                 max_size=16 * 1024 * 1024,
             ) as ws:
                 # Subscribe in batches of 100
@@ -286,21 +289,10 @@ class CoincallVenue:
                             ask_sz=ask_sz,
                         )
 
-                # Unsubscribe batches
-                try:
-                    for i in range(0, len(symbols), _BATCH):
-                        batch = symbols[i : i + _BATCH]
-                        await ws.send(
-                            json.dumps(
-                                {
-                                    "action": "unSubscribe",
-                                    "dataType": "orderBook",
-                                    "payload": {"symbol": batch},
-                                }
-                            )
-                        )
-                except Exception as exc:  # noqa: BLE001
-                    notes.append(f"unsubscribe_failed:{exc}")
+                # Drop the connection — do not batch-unsubscribe. Unsub + slow
+                # close previously pushed past BOOKQ_BURST_TIMEOUT_S after a
+                # successful collect (~11% of live slots lost Coincall).
+                notes.append("teardown=drop_ws")
 
         except Exception as exc:  # noqa: BLE001
             errors.append(f"connect:{exc}")

@@ -29,6 +29,10 @@ Fields: `status`, `last_ts_ms`, `last_ok`, `last_incomplete`, `gaps_today`,
 `incomplete_today`, `snapshots_today`, `writes_today`, `day_utc`, `disk_free_mb`,
 `clock` (Deribit offset), per-venue coverage in `last_stats`.
 
+`last_ok` tracks the Deribit hub floor; peer misses set `last_incomplete` and
+increment `incomplete_today` without a gap (status becomes ``incomplete`` while
+`last_ok` stays true).
+
 ## Hub (public dashboard)
 
 Flask app on ``BOOKQ_HUB_PORT`` (default **8088**), proxied at ``https://apps.aureas.xyz/bookq/``.
@@ -53,8 +57,10 @@ curl -s http://127.0.0.1:8088/api/status | python3 -m json.tool
 - Coverage floors gate **that venue’s** parquet rows (default Deribit ≥90%; others ≥80%).
   `quality.ok` is true when **Deribit (hub)** met its floor. Other venue failures are
   incomplete, not a daemon gap.
-- `BOOKQ_BURST_TIMEOUT_S` (default 40) kills a hung venue burst so peers still finish.
+- `BOOKQ_BURST_TIMEOUT_S` (default 55) kills a hung venue burst so peers still finish.
   Peers listen `BOOKQ_WS_COLLECT_S` (default 30). Binance then REST-fills (`BOOKQ_BINANCE_TIMEOUT_S` 90).
+  Coincall/Deribit drop the WS after collect (no batch unsubscribe) so teardown cannot
+  burn the wait_for budget after a successful catalogue.
 - Parquet: ``data/{raw_books,pair_scores}/date=YYYY-MM-DD/part-{ts_ms}.parquet``.
 - Disk abort if free &lt; ``BOOKQ_DISK_FREE_ABORT_MB`` (default 500).
 - **P1:** Deribit clock sync for boundary opens; instrument list cache (30‑min TTL, stale-on-failure); UTC midnight counter roll; REST off the event loop via ``asyncio.to_thread``.

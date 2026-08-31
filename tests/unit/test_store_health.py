@@ -69,3 +69,23 @@ def test_health_http_roundtrip(tmp_path: Path) -> None:
         assert "disk_free_mb" in body
     finally:
         srv.shutdown()
+
+
+def test_health_peer_incomplete_keeps_hub_ok() -> None:
+    h = HealthState()
+    h.record_success(
+        456,
+        {"quality": {"ok": True, "incomplete": True}},
+        wrote=True,
+        incomplete=True,
+        reason="coincall:error:TimeoutError:",
+    )
+    d = h.as_dict()
+    assert d["last_ok"] is True
+    assert d["last_incomplete"] is True
+    assert d["incomplete_today"] == 1
+    assert d["snapshots_today"] == 1
+    assert d["writes_today"] == 1
+    assert d["status"] == "incomplete"
+    assert d["last_error"] == "coincall:error:TimeoutError:"
+    assert d["gaps_today"] == 0
