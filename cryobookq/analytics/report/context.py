@@ -50,6 +50,7 @@ def scorecard_from_dict(d: dict[str, Any]) -> ScorecardResult:
         overall={k: float(v) for k, v in (d.get("overall") or {}).items()},
         landmarks=list(d.get("landmarks") or []),
         meta=dict(d.get("meta") or {}),
+        condor=dict(d.get("condor") or {}),
     )
 
 

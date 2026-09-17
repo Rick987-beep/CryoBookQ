@@ -496,6 +496,8 @@ class ScorecardResult:
     overall: dict[str, float] = field(default_factory=dict)
     landmarks: list[dict[str, Any]] = field(default_factory=list)
     meta: dict[str, Any] = field(default_factory=dict)
+    # The flight of the condor — leftover % of structure mid (see analytics/condor.py).
+    condor: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -508,6 +510,7 @@ class ScorecardResult:
             "overall": self.overall,
             "landmarks": self.landmarks,
             "meta": self.meta,
+            "condor": self.condor,
         }
 
 
@@ -749,6 +752,8 @@ def build_scorecard(
         )
 
     n_with_delta = sum(1 for p in matched if _pair_abs_delta(p) is not None)
+    from cryobookq.analytics.condor import iron_condor_snapshot
+
     return ScorecardResult(
         ts_ms=ts_ms,
         venues=venues,
@@ -758,6 +763,7 @@ def build_scorecard(
         catalogue=catalogue,
         overall=overall,
         landmarks=landmarks,
+        condor=iron_condor_snapshot(matched, venues, ts_ms=ts_ms),
         meta={
             "n_matched": len(matched),
             "n_with_delta": n_with_delta,
@@ -944,6 +950,8 @@ def aggregate_scorecards(cards: list[ScorecardResult]) -> ScorecardResult:
     }
 
     ts_list = sorted(c.ts_ms for c in cards)
+    from cryobookq.analytics.condor import aggregate_condor
+
     return ScorecardResult(
         ts_ms=ts_list[-1],
         venues=venues,
@@ -953,6 +961,7 @@ def aggregate_scorecards(cards: list[ScorecardResult]) -> ScorecardResult:
         catalogue=catalogue,
         overall=overall,
         landmarks=[],
+        condor=aggregate_condor(cards),
         meta={
             "n_snapshots": len(cards),
             "ts_ms_first": ts_list[0],

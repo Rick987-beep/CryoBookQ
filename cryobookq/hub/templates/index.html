@@ -25,6 +25,45 @@
     <div class="section-gap empty-banner">{{ empty_message }}</div>
     {% else %}
 
+    <section class="section-gap glance">
+      <div class="card">
+        <div class="card-header">{{ copy.strip.avg_title }}</div>
+        <div class="card-body stack">
+          <p class="small muted glance-blurb">{{ copy.strip.avg_line1 }}</p>
+          <p class="small muted glance-blurb">{{ copy.strip.avg_line2 }}</p>
+          <div class="venue-line">
+            {% for chip in glance_spread %}
+            <div class="venue-chip">
+              <span class="venue-accent other" style="background:{{ chip.color }}"></span>
+              <div class="stack">
+                <span class="small muted">{{ chip.name }}</span>
+                <span class="chip-val{% if chip.best %} best{% endif %}">{{ chip.fmt }}</span>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">{{ copy.strip.condor_title }}</div>
+        <div class="card-body stack">
+          <p class="small muted glance-blurb">{{ copy.strip.condor_line1 }}</p>
+          <p class="small muted glance-blurb">{{ copy.strip.condor_line2 }}</p>
+          <div class="venue-line">
+            {% for chip in glance_condor %}
+            <div class="venue-chip">
+              <span class="venue-accent other" style="background:{{ chip.color }}"></span>
+              <div class="stack">
+                <span class="small muted">{{ chip.name }}</span>
+                <span class="chip-val{% if chip.best %} best{% endif %}">{{ chip.fmt }}</span>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section class="section-gap">
       <div class="card">
         <div class="card-header">

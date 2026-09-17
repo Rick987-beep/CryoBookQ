@@ -5,6 +5,14 @@ All notable changes to CryoBookQ are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Hub glance strip** — two cards above Overall ranking: average top-of-book
+  spread % (3×3 landmark grid) and **The flight of the condor** (what remains of
+  a short iron condor’s mid after open+close spread and standard-tier taker fees).
+
 ## [0.1.1] — 2026-08-31
 
 Production soak on apps.aureas.xyz: Coincall was dropped on ~11% of 15‑minute

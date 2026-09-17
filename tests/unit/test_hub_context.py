@@ -24,6 +24,7 @@ def _book_row(*, venue: str, key: OptionKey, delta: float, bid: float, ask: floa
         "strike": key.strike,
         "is_call": key.is_call,
         "delta": delta,
+        "index_px": 100_000.0,
         "bid_px_1": bid,
         "bid_sz_1": sz,
         "ask_px_1": ask,
@@ -40,11 +41,13 @@ def _book_row(*, venue: str, key: OptionKey, delta: float, bid: float, ask: floa
 def _rich_card():
     ts = 1_700_000_000_000
     pairs: list[MatchedPair] = []
-    for dte in (1.0, 2.0, 7.0, 14.0, 21.0, 60.0, 90.0, 120.0):
+    for dte in (1.0, 2.0, 7.0, 14.0, 21.0, 30.0, 60.0, 90.0, 120.0):
         exp = ts + int(dte * 86400_000)
         for is_call, delta in [
             (True, 0.5),
             (False, -0.5),
+            (True, 0.4),
+            (False, -0.4),
             (True, 0.25),
             (False, -0.25),
             (True, 0.075),
@@ -52,16 +55,43 @@ def _rich_card():
             (True, 0.025),
             (False, -0.025),
         ]:
-            key = OptionKey("BTC", exp, 80_000.0 + (1 if is_call else 0), is_call)
+            key = OptionKey(
+                "BTC",
+                exp,
+                70_000.0 + round(abs(delta) * 40_000.0) + (1 if is_call else 0),
+                is_call,
+            )
+            prem = 400.0 + abs(delta) * 4_000.0
+            half = 12.0
             pairs.append(
                 MatchedPair(
                     key=key,
                     books={
-                        "deribit": _book_row(venue="deribit", key=key, delta=delta, bid=198, ask=210, sz=8),
-                        "coincall": _book_row(venue="coincall", key=key, delta=delta, bid=195, ask=215, sz=6),
-                        "bybit": _book_row(venue="bybit", key=key, delta=delta, bid=199, ask=211, sz=7),
-                        "okx": _book_row(venue="okx", key=key, delta=delta, bid=200, ask=212, sz=7),
-                        "binance": _book_row(venue="binance", key=key, delta=delta, bid=201, ask=213, sz=7),
+                        "deribit": _book_row(
+                            venue="deribit", key=key, delta=delta, bid=prem - half, ask=prem + half, sz=8
+                        ),
+                        "coincall": _book_row(
+                            venue="coincall",
+                            key=key,
+                            delta=delta,
+                            bid=prem - half * 1.6,
+                            ask=prem + half * 1.6,
+                            sz=6,
+                        ),
+                        "bybit": _book_row(
+                            venue="bybit", key=key, delta=delta, bid=prem - half * 0.6, ask=prem + half * 0.6, sz=7
+                        ),
+                        "okx": _book_row(
+                            venue="okx", key=key, delta=delta, bid=prem - half * 1.1, ask=prem + half * 1.1, sz=7
+                        ),
+                        "binance": _book_row(
+                            venue="binance",
+                            key=key,
+                            delta=delta,
+                            bid=prem - half * 0.8,
+                            ask=prem + half * 0.8,
+                            sz=7,
+                        ),
                     },
                 )
             )
@@ -86,6 +116,10 @@ def test_dashboard_view_from_scorecard() -> None:
     assert ctx["leader"] is not None
     assert "Impressum" not in ctx["footer"]["impressum"]  # raw impressum text, not label
     assert ctx["copy"]["venues"].startswith("Weighted")
+    assert ctx["copy"]["strip"]["condor_title"] == "The flight of the condor"
+    assert ctx["glance_spread"]
+    assert all(chip["fmt"].endswith("%") or chip["fmt"] == "—" for chip in ctx["glance_spread"])
+    assert any(chip["fmt"] != "—" for chip in ctx["glance_condor"])
 
 
 def test_hub_renders_public_dashboard(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -133,6 +167,10 @@ def test_hub_renders_public_dashboard(tmp_path: Path, monkeypatch: pytest.Monkey
     assert b"Datenschutz" in body
     assert b"Deribit" in body
     assert b"Binance" in body
+    assert b"Avg spread" in body
+    assert b"The flight of the condor" in body
+    assert b"Top of book" in body
+    assert b"structure mid" in body
 
     ctx = build_hub_context(tmp_path, health=fake_health)
     assert ctx["has_data"] is True

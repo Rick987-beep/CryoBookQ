@@ -35,3 +35,9 @@ def empty_message() -> str:
 
 def page_title() -> str:
     return str(load_copy()["meta"]["title"])
+
+
+def strip() -> dict[str, str]:
+    """Two-card glance copy (avg spread + The flight of the condor)."""
+    block = load_copy().get("strip") or {}
+    return {str(k): str(v) for k, v in block.items()}

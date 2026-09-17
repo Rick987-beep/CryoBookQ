@@ -15,6 +15,14 @@ wings_total = "Total is the equal-weight mean of the three tenor rows; that aver
 presence = "Among Deribit-listed contracts this venue also listed, with |Δ| ≥ 0.05, what share have both a bid and an ask? One-sided listings lower the score; a missing book on one venue does not affect peers."
 catalogue = "Catalogue measures quotable surface area — separate from the overall index. Hub coverage counts two-sided quotes on Deribit-listed names; extras reward two-sided names the hub does not quote, liquidity-gated by depth."
 
+[strip]
+avg_title = "Avg spread"
+avg_line1 = "Mean relative spread across the 3×3 landmark grid, calls and puts averaged."
+avg_line2 = "Top of book: (ask − bid) divided by mid."
+condor_title = "The flight of the condor"
+condor_line1 = "Short iron condor: about 30 days to expiry, sell ±40 delta, buy ±25 delta. 100% is the structure mid before you trade."
+condor_line2 = "What remains after opening and closing — top-of-book spread plus standard-tier taker fees on all eight fills."
+
 [footer]
 disclaimer = """Alle Angaben dienen ausschließlich der Information und stellen keine Anlageberatung, Handelsempfehlung oder Aufforderung zum Kauf oder Verkauf dar. Die Daten basieren auf öffentlich sichtbaren Orderbüchern zum Erfassungszeitpunkt. Vervielfältigung oder Weiterverwendung ohne ausdrückliche Zustimmung nicht gestattet."""
 impressum = """Aureas GmbH, Vorhölzerstr. 2, 86911 Dießen am Ammersee · Vertretung durch Ulrik Deichsel · München HRB 192643 · Verantwortlicher gem. § 55 Abs. 2 RStV: Ulrik Deichsel"""

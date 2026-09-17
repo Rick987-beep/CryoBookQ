@@ -81,6 +81,17 @@ Deribit’s extras are 0 by construction; its Catalogue **equals hub coverage**.
 
 Empty unique listings do not add extras mass. Missing a peer does not change Deribit’s Catalogue.
 
+## Hub glance strip (avg spread + The flight of the condor)
+
+Public dashboard (`/bookq/`) shows two headline cards above the 0–10 ranking:
+
+| Card | Definition |
+|------|------------|
+| **Avg spread** | Equal-weight mean of the 3×3 grid `spread_pct` per venue (calls and puts already averaged in each cell). Wings are excluded. |
+| **The flight of the condor** | **Short iron condor**: nearest listed expiry to 30 days (max gap 15), sell nearest \|Δ\| = 0.40 call+put, buy nearest \|Δ\| = 0.25 call+put. **100%** is the structure mid (net credit). The hub shows what remains after four full top-of-book widths + eight standard-tier **taker** fills. |
+
+Fees are pinned in [`cryobookq/fees.py`](../cryobookq/fees.py) (retail / VIP 0). Missing or one-sided legs omit that venue.
+
 ## Deltas
 
 WS books lack greeks. Snapshot enrichment uses Deribit `get_book_summary_by_currency` + forward BS delta from mark IV (attached to both venues’ matched rows by `OptionKey`).

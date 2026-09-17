@@ -111,6 +111,60 @@ def _scorecard_generated(card: ScorecardResult | None, *, now: datetime | None =
     return (now or datetime.now(tz=UTC)).strftime("%Y-%m-%d %H:%M UTC")
 
 
+def _fmt_pct(value: float | None) -> str:
+    if value is None:
+        return "—"
+    return f"{float(value):.2f}%"
+
+
+def grid_mean_spread_pct(card: ScorecardResult, venue: str) -> float | None:
+    """Equal-weight mean of 3×3 grid ``spread_pct`` (skip null cells / wings)."""
+    vals: list[float] = []
+    for tenor, delta, _label, _dte in _GRID_ROWS:
+        cell = card.grid.get(f"{tenor}:{delta}")
+        if not isinstance(cell, dict):
+            continue
+        vs = (cell.get("venues") or {}).get(venue)
+        if not isinstance(vs, dict):
+            continue
+        sp = vs.get("spread_pct")
+        if sp is None:
+            continue
+        try:
+            vals.append(float(sp))
+        except (TypeError, ValueError):
+            continue
+    if not vals:
+        return None
+    return sum(vals) / len(vals)
+
+
+def _glance_chips(
+    ranked_venues: list[dict[str, Any]],
+    values: dict[str, float | None],
+    *,
+    lower_better: bool = True,
+) -> list[dict[str, Any]]:
+    """Venue chips for the glance strip; highlight the best (lowest) numeric value."""
+    numeric = [v for v in values.values() if v is not None]
+    best = min(numeric) if numeric and lower_better else (max(numeric) if numeric else None)
+    chips: list[dict[str, Any]] = []
+    for v in ranked_venues:
+        vid = v["id"]
+        val = values.get(vid)
+        is_best = val is not None and best is not None and abs(val - best) < 1e-12
+        chips.append(
+            {
+                "id": vid,
+                "name": v["name"],
+                "color": v["color"],
+                "fmt": _fmt_pct(val),
+                "best": is_best,
+            }
+        )
+    return chips
+
+
 def build_dashboard_view(
     card: ScorecardResult | None,
     *,
@@ -132,6 +186,7 @@ def build_dashboard_view(
             "wings_total": copy_loader.section("wings_total"),
             "presence": copy_loader.section("presence"),
             "catalogue": copy_loader.section("catalogue"),
+            "strip": copy_loader.strip(),
         },
         "footer": footer,
         "interval_min": interval_min,
@@ -155,6 +210,8 @@ def build_dashboard_view(
                 "wing_rows": [],
                 "presence_rows": [],
                 "catalogue_rows": [],
+                "glance_spread": [],
+                "glance_condor": [],
             }
         )
         return base
@@ -277,6 +334,16 @@ def build_dashboard_view(
     n_snaps = int(card.meta.get("n_snapshots") or 1)
     leader = ranked_venues[0] if ranked_venues else None
 
+    spread_vals = {v["id"]: grid_mean_spread_pct(card, v["id"]) for v in ranked_venues}
+    condor_pv = (card.condor or {}).get("per_venue") or {}
+    condor_vals: dict[str, float | None] = {}
+    for v in ranked_venues:
+        row = condor_pv.get(v["id"])
+        if isinstance(row, dict) and row.get("leftover_pct_of_mid") is not None:
+            condor_vals[v["id"]] = float(row["leftover_pct_of_mid"])
+        else:
+            condor_vals[v["id"]] = None
+
     base.update(
         {
             "meta": {
@@ -291,6 +358,8 @@ def build_dashboard_view(
             "wing_rows": wing_rows,
             "presence_rows": presence_rows,
             "catalogue_rows": catalogue_rows,
+            "glance_spread": _glance_chips(ranked_venues, spread_vals),
+            "glance_condor": _glance_chips(ranked_venues, condor_vals, lower_better=False),
         }
     )
     return base
