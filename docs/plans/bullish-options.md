@@ -20,8 +20,8 @@ Probe findings locked into this design (live, 2026-09-23):
 
 full read of all options necessary to have a full statistics set on bullish.com next to the other exchanges.
 
-**Status:** [ ] not started  
-**Evidence:** (fill when live)
+**Status:** [x] passed  
+**Evidence:** 2026-09-23 12:39 UTC. `python -m cryobookq.daemon --once --venues deribit,bybit,okx,binance,bullish --duration 30` against the public APIs. Data dir `tmp/bullish-live`. Bullish list 1546/1546 (coverage 1.0, 412 two-sided at ws_done). Parquet `tmp/bullish-live/raw_books/date=2026-09-23/part-1790167161113.parquet` (4756 rows). Scorecard overall: Deribit 6.20, Bybit 7.13, OKX 6.53, Binance 7.52, Bullish 3.38. Bullish presence 287/584 two-sided (49.1% → 4.91). All 9 grid cells and 3 wing cells include Bullish. Coincall omitted: no API credentials in this worktree. HTML opened at `http://127.0.0.1:8765/scorecard.html`: Bullish is rank 5 and a column on the component table, the 3×3 grid, and the wings table.
 
 ## Architecture
 
@@ -133,7 +133,7 @@ Native `BookL5` like every other adapter. WebSocket bids/asks are flat `[price, 
 
 ### Phase 4 — Live statistics set
 
-**Status:** not started
+**Status:** done
 
 **Build:** Only fixes this phase’s live run exposes. No new product surface.
 
@@ -143,11 +143,11 @@ Native `BookL5` like every other adapter. WebSocket bids/asks are flat `[price, 
 
 | Step | Status |
 |------|--------|
-| 1 Read plan | [ ] |
-| 2 Implement | [ ] |
-| 3 Test (+ live if required) | [ ] |
-| 4 Review | [ ] |
-| 5 Document | [ ] |
-| 6 Git (commit + push) | [ ] |
+| 1 Read plan | [x] |
+| 2 Implement | [x] |
+| 3 Test (+ live if required) | [x] |
+| 4 Review | [x] |
+| 5 Document | [x] |
+| 6 Git (commit + push) | [x] |
 
-**Live evidence:**
+**Live evidence:** Same run as the overall acceptance test above. No product code change in this phase. Browser check of the rendered scorecard showed Bullish at 3.38 beside Deribit 6.20, Bybit 7.13, OKX 6.53, and Binance 7.52, with its own columns on the 3×3 grid and the 2.5Δ wings table.
