@@ -15,6 +15,7 @@ def test_default_specs() -> None:
     assert spec_for("bybit").size_to_btc == 1.0
     assert spec_for("binance").price_ccy == "USD"
     assert spec_for("okx") == VenueSpec("okx", "BTC", 0.01)
+    assert spec_for("bullish") == VenueSpec("bullish", "USD", 1.0)
 
 
 def test_okx_from_instrument_raw() -> None:

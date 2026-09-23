@@ -1,7 +1,8 @@
-"""Symbol parse / convert between Deribit and Coincall option names.
+"""Symbol parse / convert between venue option names.
 
 Deribit:  BTC-3APR26-74000-C   (day unpadded)
 Coincall: BTCUSD-03APR26-74000-C (day zero-padded)
+Bullish:  BTC-USDC-20260924-85600-C (YYYYMMDD, 08:00 UTC)
 
 Copied/adapted from CryoTrader exchanges/deribit/symbols.py — do not import CryoTrader.
 """
@@ -38,6 +39,8 @@ _BYBIT_RE = re.compile(
 )
 _BINANCE_RE = re.compile(r"^([A-Z]+)-(\d{6})-(\d+(?:\.\d+)?)-([CP])$")
 _OKX_RE = re.compile(r"^([A-Z]+)-USD-(\d{6})-(\d+(?:\.\d+)?)-([CP])$")
+# BTC-USDC-20260924-85600-C. Eight-digit date so dated futures (BTC-USDC-20260924) do not match.
+_BULLISH_RE = re.compile(r"^([A-Z]+)-USDC-(\d{8})-(\d+(?:\.\d+)?)-([CP])$")
 
 
 def parse_deribit_symbol(symbol: str) -> dict[str, str] | None:
@@ -107,6 +110,38 @@ def parse_okx_symbol(symbol: str) -> dict[str, str] | None:
     }
 
 
+def parse_bullish_symbol(symbol: str) -> dict[str, str] | None:
+    """Bullish option: ``BTC-USDC-YYYYMMDD-STRIKE-C|P``.
+
+    Dated futures (``BTC-USDC-YYYYMMDD``) do not match.
+    """
+    m = _BULLISH_RE.match(symbol)
+    if not m:
+        return None
+    if _expiry_from_yyyymmdd(m.group(2)) is None:
+        return None
+    return {
+        "underlying": m.group(1),
+        "ymd": m.group(2),
+        "strike": m.group(3),
+        "option_type": m.group(4),
+    }
+
+
+def _expiry_from_yyyymmdd(ymd: str) -> datetime | None:
+    if len(ymd) != 8 or not ymd.isdigit():
+        return None
+    year = int(ymd[:4])
+    month = int(ymd[4:6])
+    day = int(ymd[6:8])
+    if not (1 <= month <= 12 and 1 <= day <= 31):
+        return None
+    try:
+        return datetime(year, month, day, _EXPIRY_HOUR_UTC, 0, 0, tzinfo=UTC)
+    except ValueError:
+        return None
+
+
 def _expiry_from_ymd(ymd: str) -> datetime | None:
     if len(ymd) != 6:
         return None
@@ -148,6 +183,9 @@ def option_expiry_utc(symbol: str) -> datetime | None:
     p = parse_binance_symbol(symbol) or parse_okx_symbol(symbol)
     if p:
         return _expiry_from_ymd(p["ymd"])
+    bull = parse_bullish_symbol(symbol)
+    if bull:
+        return _expiry_from_yyyymmdd(bull["ymd"])
     return None
 
 
@@ -159,6 +197,7 @@ def option_key_from_symbol(symbol: str, underlying: str | None = None) -> Option
         or parse_bybit_symbol(symbol)
         or parse_binance_symbol(symbol)
         or parse_okx_symbol(symbol)
+        or parse_bullish_symbol(symbol)
     )
     if not parts:
         return None

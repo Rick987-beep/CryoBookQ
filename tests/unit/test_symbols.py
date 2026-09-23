@@ -8,6 +8,7 @@ from cryobookq.symbols import (
     option_expiry_utc,
     option_key_from_symbol,
     parse_binance_symbol,
+    parse_bullish_symbol,
     parse_bybit_symbol,
     parse_coincall_symbol,
     parse_deribit_symbol,
@@ -74,3 +75,37 @@ def test_parse_bybit_binance_okx() -> None:
     assert k1 == k2 == k3 == k4
     assert k1 is not None
     assert option_expiry_utc("BTC-260904-80000-C") == datetime(2026, 9, 4, 8, 0, 0, tzinfo=UTC)
+
+
+def test_bullish_matches_deribit_key() -> None:
+    p = parse_bullish_symbol("BTC-USDC-20260924-85600-C")
+    assert p is not None
+    assert p["underlying"] == "BTC"
+    assert p["ymd"] == "20260924"
+    assert p["strike"] == "85600"
+    assert p["option_type"] == "C"
+    assert option_expiry_utc("BTC-USDC-20260924-85600-C") == datetime(
+        2026, 9, 24, 8, 0, 0, tzinfo=UTC
+    )
+    bull = option_key_from_symbol("BTC-USDC-20260924-85600-C")
+    deribit = option_key_from_symbol("BTC-24SEP26-85600-C")
+    assert bull is not None and deribit is not None
+    assert bull == deribit
+    assert bull == OptionKey("BTC", bull.expiry_utc_ms, 85600.0, True)
+
+
+def test_bullish_odd_strike_and_put() -> None:
+    key = option_key_from_symbol("BTC-USDC-20270625-32704-P")
+    assert key is not None
+    assert key.strike == 32704.0
+    assert key.is_call is False
+    assert option_expiry_utc("BTC-USDC-20270625-32704-P") == datetime(
+        2027, 6, 25, 8, 0, 0, tzinfo=UTC
+    )
+
+
+def test_bullish_dated_future_is_not_an_option() -> None:
+    assert parse_bullish_symbol("BTC-USDC-20260924") is None
+    assert option_key_from_symbol("BTC-USDC-20260924") is None
+    assert parse_bullish_symbol("BTC-USDC-PERP") is None
+    assert parse_bullish_symbol("BTC-USDC-20261340-100-C") is None
