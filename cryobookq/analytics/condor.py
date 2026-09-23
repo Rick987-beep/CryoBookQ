@@ -2,9 +2,14 @@
 
 Structure
 ---------
-Nearest Deribit-listed expiry to **30 days**, max gap 15 days
-(BTC monthlies often sit ~22d or ~43d; a 5-day window misses both).
-Sell call + put nearest |delta| = 0.40; buy call + put nearest |delta| = 0.25.
+Nearest expiry to **30 days** (max gap 15) on which **every** compared venue
+has a two-sided book for the four legs. Calls and puts are chosen separately,
+so the wings do not have to be symmetric.
+
+Sell the call and the put whose |delta| is nearest 0.40. Buy a further-OTM
+call and put whose |delta| is nearest 0.25 (higher strike for the call, lower
+strike for the put). Delta is Deribit's. The same four contracts are priced
+on every venue.
 
 100% is the structure mid (net credit, 1 BTC of option size), not Bitcoin:
 
@@ -18,21 +23,16 @@ Open + close vs that mid
 
     leftover_pct = 100 × (mid − spread_usd − fee_usd) / mid
 
-The hub shows leftover_pct (higher is better). A venue is omitted when any leg
-is missing/one-sided, index is unknown, or mid credit is not positive.
+The hub shows leftover_pct (higher is better). A venue is omitted when its
+credit is not positive or its fee schedule is missing. If no expiry in range
+has four shared two-sided legs, the strip is empty for everyone.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from cryobookq.analytics.scorecard import (
-    MAX_DELTA_GAP,
-    _expiries,
-    _mean,
-    nearest_expiry,
-    nearest_pair,
-)
+from cryobookq.analytics.scorecard import _expiries, _mean
 from cryobookq.fees import taker_fee_usd
 from cryobookq.pipeline.match import MatchedContract
 from cryobookq.pipeline.score import venue_metrics
@@ -42,13 +42,6 @@ CONDOR_TARGET_DTE = 30.0
 CONDOR_MAX_DTE_GAP = 15.0
 CONDOR_SHORT_ABS_DELTA = 0.40
 CONDOR_LONG_ABS_DELTA = 0.25
-
-_LEG_SPEC: tuple[tuple[str, float, bool], ...] = (
-    ("short_call", CONDOR_SHORT_ABS_DELTA, True),
-    ("short_put", CONDOR_SHORT_ABS_DELTA, False),
-    ("long_call", CONDOR_LONG_ABS_DELTA, True),
-    ("long_put", CONDOR_LONG_ABS_DELTA, False),
-)
 
 
 def _index_px(pairs: list[MatchedContract]) -> float | None:
@@ -66,41 +59,107 @@ def _index_px(pairs: list[MatchedContract]) -> float | None:
     return None
 
 
+class _Leg:
+    """Adapter so round-trip code can read ``leg.pair.books``."""
+
+    __slots__ = ("pair",)
+
+    def __init__(self, pair: MatchedContract) -> None:
+        self.pair = pair
+
+
+def _hub_abs_delta(pair: MatchedContract) -> float | None:
+    row = pair.books.get("deribit")
+    if row is None or row.get("delta") is None:
+        for candidate in pair.books.values():
+            if candidate and candidate.get("delta") is not None:
+                row = candidate
+                break
+    if not row or row.get("delta") is None:
+        return None
+    try:
+        return abs(float(row["delta"]))
+    except (TypeError, ValueError):
+        return None
+
+
+def _quoted_on_all(pair: MatchedContract, venues: list[str]) -> bool:
+    for venue in venues:
+        metrics = venue_metrics(pair.books.get(venue))
+        if not metrics["two_sided"] or not metrics["mid_usd"]:
+            return False
+    return True
+
+
+def _pick_body_and_wing(
+    candidates: list[MatchedContract],
+    *,
+    wing_is_further,
+) -> tuple[MatchedContract, MatchedContract] | None:
+    """Short leg nearest 40Δ, wing further OTM and nearest 25Δ."""
+    scored = [(pair, delta) for pair in candidates if (delta := _hub_abs_delta(pair)) is not None]
+    if not scored:
+        return None
+    short = min(scored, key=lambda item: (abs(item[1] - CONDOR_SHORT_ABS_DELTA), item[0].key.strike))[0]
+    wings = [
+        (pair, delta)
+        for pair, delta in scored
+        if wing_is_further(pair.key.strike, short.key.strike)
+    ]
+    if not wings:
+        return None
+    wing = min(wings, key=lambda item: (abs(item[1] - CONDOR_LONG_ABS_DELTA), item[0].key.strike))[0]
+    return short, wing
+
+
 def pick_condor_legs(
     pairs: list[MatchedContract],
     *,
+    venues: list[str],
     ts_ms: int,
 ) -> dict[str, Any] | None:
-    """Pick the four IC legs, or ``None`` if expiry/delta/structure fails."""
+    """Pick four shared legs, or ``None`` if no expiry in range qualifies.
+
+    A contract counts only when every venue in *venues* has a two-sided book.
+    Expiries are tried from closest to 30 days outward, inside the 15-day gap.
+    """
+    if not venues:
+        return None
     expiries = _expiries(pairs, ts_ms)
-    hit = nearest_expiry(expiries, CONDOR_TARGET_DTE, max_gap=CONDOR_MAX_DTE_GAP)
-    if hit is None:
-        return None
-    exp_ms, listed_dte = hit
-    legs: dict[str, Any] = {}
-    for name, target, is_call in _LEG_SPEC:
-        pick = nearest_pair(
-            pairs,
-            expiry_utc_ms=exp_ms,
-            target_abs_delta=target,
-            is_call=is_call,
-            max_delta_gap=MAX_DELTA_GAP,
+    ordered = sorted(expiries.items(), key=lambda item: abs(item[1] - CONDOR_TARGET_DTE))
+    for exp_ms, listed_dte in ordered:
+        if abs(listed_dte - CONDOR_TARGET_DTE) > CONDOR_MAX_DTE_GAP:
+            continue
+        here = [
+            pair
+            for pair in pairs
+            if pair.has_hub
+            and pair.key.expiry_utc_ms == exp_ms
+            and _quoted_on_all(pair, venues)
+        ]
+        calls = _pick_body_and_wing(
+            [pair for pair in here if pair.key.is_call],
+            wing_is_further=lambda strike, short: strike > short,
         )
-        if pick is None:
-            return None
-        legs[name] = pick
-
-    # Degenerate condor: inner and outer landed on the same strike.
-    if legs["short_call"].pair.key == legs["long_call"].pair.key:
-        return None
-    if legs["short_put"].pair.key == legs["long_put"].pair.key:
-        return None
-
-    return {
-        "expiry_utc_ms": exp_ms,
-        "listed_dte": listed_dte,
-        "legs": legs,
-    }
+        puts = _pick_body_and_wing(
+            [pair for pair in here if not pair.key.is_call],
+            wing_is_further=lambda strike, short: strike < short,
+        )
+        if calls is None or puts is None:
+            continue
+        short_call, long_call = calls
+        short_put, long_put = puts
+        return {
+            "expiry_utc_ms": exp_ms,
+            "listed_dte": listed_dte,
+            "legs": {
+                "short_call": _Leg(short_call),
+                "long_call": _Leg(long_call),
+                "short_put": _Leg(short_put),
+                "long_put": _Leg(long_put),
+            },
+        }
+    return None
 
 
 def _venue_round_trip(
@@ -168,7 +227,9 @@ def iron_condor_snapshot(
         "index_px": None,
         "per_venue": {v: None for v in venues},
     }
-    picked = pick_condor_legs(pairs, ts_ms=ts_ms)
+    # Ignore scorecard placeholders that have no books (Binance is always listed).
+    quoted_venues = [venue for venue in venues if any(pair.books.get(venue) for pair in pairs)]
+    picked = pick_condor_legs(pairs, venues=quoted_venues, ts_ms=ts_ms)
     if picked is None:
         return empty
     index_px = _index_px(pairs)
@@ -178,11 +239,13 @@ def iron_condor_snapshot(
     per_venue: dict[str, dict[str, float] | None] = {}
     for v in venues:
         per_venue[v] = _venue_round_trip(picked["legs"], v, index_usd=index_px)
+    strikes = {name: leg.pair.key.strike for name, leg in picked["legs"].items()}
     return {
         "spec": spec,
         "listed_dte": picked["listed_dte"],
         "expiry_utc_ms": picked["expiry_utc_ms"],
         "index_px": index_px,
+        "strikes": strikes,
         "per_venue": per_venue,
     }
 

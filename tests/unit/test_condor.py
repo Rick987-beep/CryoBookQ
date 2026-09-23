@@ -58,7 +58,7 @@ def _condor_pairs(
         (True, CONDOR_SHORT_ABS_DELTA, 82_000.0, 400.0, 420.0),
         (False, -CONDOR_SHORT_ABS_DELTA, 82_000.0, 400.0, 420.0),
         (True, CONDOR_LONG_ABS_DELTA, 88_000.0, 200.0, 220.0),
-        (False, -CONDOR_LONG_ABS_DELTA, 88_000.0, 200.0, 220.0),
+        (False, -CONDOR_LONG_ABS_DELTA, 76_000.0, 200.0, 220.0),
     ]
     pairs = []
     for is_call, delta, strike, bid, ask in specs:
@@ -107,12 +107,43 @@ def test_condor_rt_matches_hand_math() -> None:
     assert abs(d["leftover_pct_of_mid"] - (400.0 - rt) / 400.0 * 100.0) < 1e-9
 
 
-def test_one_sided_wing_nulls_venue() -> None:
+def test_one_sided_wing_drops_the_structure() -> None:
+    """A leg nobody shares is not used. With no alternate, the strip is empty."""
     ts = 1_700_000_000_000
     pairs = _condor_pairs(ts=ts, coincall_one_sided=True)
     out = iron_condor_snapshot(pairs, ["deribit", "coincall"], ts_ms=ts)
-    assert out["per_venue"]["deribit"] is not None
+    assert out["listed_dte"] is None
+    assert out["per_venue"]["deribit"] is None
     assert out["per_venue"]["coincall"] is None
+
+
+def test_skips_strike_missing_on_one_venue() -> None:
+    """Prefer a shared strike over the Deribit-only strike nearest the target delta."""
+    ts = 1_700_000_000_000
+    exp = ts + int(CONDOR_TARGET_DTE * 86400_000)
+
+    def add(pairs, *, strike, is_call, delta, venues):
+        key = OptionKey("BTC", exp, strike, is_call)
+        books = {
+            venue: _row(venue=venue, key=key, delta=delta, bid=400.0 if abs(delta) > 0.3 else 200.0, ask=420.0 if abs(delta) > 0.3 else 220.0)
+            for venue in venues
+        }
+        pairs.append(MatchedPair(key=key, books=books))
+
+    pairs: list = []
+    # Deribit-only 40Δ call. Shared call is a bit further off.
+    add(pairs, strike=89_000.0, is_call=True, delta=0.40, venues=("deribit",))
+    add(pairs, strike=90_000.0, is_call=True, delta=0.36, venues=("deribit", "bybit"))
+    add(pairs, strike=94_000.0, is_call=True, delta=0.25, venues=("deribit", "bybit"))
+    add(pairs, strike=84_000.0, is_call=False, delta=-0.40, venues=("deribit", "bybit"))
+    add(pairs, strike=80_000.0, is_call=False, delta=-0.26, venues=("deribit", "bybit"))
+    out = iron_condor_snapshot(pairs, ["deribit", "bybit"], ts_ms=ts)
+    assert out["per_venue"]["deribit"] is not None
+    assert out["per_venue"]["bybit"] is not None
+    assert out["strikes"]["short_call"] == 90_000.0
+    assert out["strikes"]["long_call"] == 94_000.0
+    assert out["strikes"]["short_put"] == 84_000.0
+    assert out["strikes"]["long_put"] == 80_000.0
 
 
 def test_missing_30dte_yields_empty() -> None:
@@ -140,7 +171,7 @@ def test_nearest_listed_near_30d_is_accepted() -> None:
         (True, CONDOR_SHORT_ABS_DELTA, 82_000.0, 400.0, 420.0),
         (False, -CONDOR_SHORT_ABS_DELTA, 82_000.0, 400.0, 420.0),
         (True, CONDOR_LONG_ABS_DELTA, 88_000.0, 200.0, 220.0),
-        (False, -CONDOR_LONG_ABS_DELTA, 88_000.0, 200.0, 220.0),
+        (False, -CONDOR_LONG_ABS_DELTA, 76_000.0, 200.0, 220.0),
     ]
     pairs = []
     for is_call, delta, strike, bid, ask in specs:

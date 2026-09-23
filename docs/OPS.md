@@ -83,9 +83,9 @@ Warn if free &lt; 5 GB. Archive old Parquet under `data/` monthly if needed.
 ## Venues
 
 `--venues deribit,coincall,bybit,okx,binance,bullish` (comma-separated). Public MD for
-Deribit/Bybit/OKX/Binance/Bullish; Coincall needs API keys. Bullish stays off the
-daemon default until a soak shows ≥80% coverage. Do **not** enable every venue on
-apps until explicitly approved. First production add: Bybit+OKX beside the existing two.
+Deribit/Bybit/OKX/Binance/Bullish; Coincall needs API keys. The apps unit runs
+all six, including Bullish. Do **not** add another venue on apps until explicitly
+approved. First production add: Bybit+OKX beside the existing two.
 Binance is a 60–90s sampler (`BOOKQ_BINANCE_TIMEOUT_S`); 15-min slots absorb that. Do
 not run Binance on a soak cadence shorter than its timeout.
 
