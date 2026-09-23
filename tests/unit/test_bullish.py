@@ -1,5 +1,6 @@
-"""Unit: Bullish L2 frames and market-list filter. No network."""
+"""Unit: Bullish L2 frames, market-list filter, and registry. No network."""
 
+from cryobookq.venues.registry import make_venue
 from cryobookq.venues.bullish import (
     BullishLocalBook,
     apply_l2_message,
@@ -23,6 +24,11 @@ def _snap(symbol: str, bids: list[str], asks: list[str], *, pub: str = "17901660
             "publishedAtTimestamp": pub,
         },
     }
+
+
+def test_make_venue_bullish() -> None:
+    venue = make_venue("bullish")
+    assert venue.name == "bullish"
 
 
 def test_flat_levels_pairs_strings() -> None:

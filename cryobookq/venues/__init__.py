@@ -1,6 +1,7 @@
 """Venue package exports."""
 
 from cryobookq.venues.binance import BinanceVenue
+from cryobookq.venues.bullish import BullishVenue
 from cryobookq.venues.bybit import BybitVenue
 from cryobookq.venues.coincall import CoincallVenue
 from cryobookq.venues.deribit import DeribitVenue
@@ -14,4 +15,5 @@ __all__ = [
     "BybitVenue",
     "OkxVenue",
     "BinanceVenue",
+    "BullishVenue",
 ]

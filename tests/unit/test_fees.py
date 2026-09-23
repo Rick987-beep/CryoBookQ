@@ -34,12 +34,18 @@ def test_bybit_cap_on_cheap_option() -> None:
     assert abs(fee - 0.63) < 1e-9
 
 
+def test_bullish_individual_clob_cap() -> None:
+    # 3 bps of 100k = $30; 10% of $100 premium = $10 → cap wins.
+    fee = taker_fee_usd("bullish", index_usd=100_000.0, premium_usd=100.0)
+    assert fee == 10.0
+
+
 def test_unknown_venue_is_none() -> None:
     assert taker_fee_usd("not-an-exchange", index_usd=100_000.0, premium_usd=100.0) is None
 
 
 def test_all_preferred_venues_have_a_schedule() -> None:
-    for v in ("deribit", "coincall", "bybit", "okx", "binance"):
+    for v in ("deribit", "coincall", "bybit", "okx", "binance", "bullish"):
         assert v in STANDARD_TIER
         assert STANDARD_TIER[v].taker_rate > 0
         assert 0 < STANDARD_TIER[v].premium_cap <= 1

@@ -37,6 +37,7 @@ class Settings:
     coverage_floor_bybit: float = 0.80
     coverage_floor_okx: float = 0.80
     coverage_floor_binance: float = 0.80
+    coverage_floor_bullish: float = 0.80
     # Peer wait_for budget: lead-open collect is ~34s; leave headroom for
     # connect/subscribe + WS teardown (see Coincall close-handshake timeouts).
     burst_timeout_s: float = 55.0
@@ -64,6 +65,7 @@ class Settings:
             "bybit": self.coverage_floor_bybit,
             "okx": self.coverage_floor_okx,
             "binance": self.coverage_floor_binance,
+            "bullish": self.coverage_floor_bullish,
         }
 
     def burst_wait_s(self, venue: str) -> float:
@@ -100,6 +102,7 @@ def get_settings(*, load: bool = True) -> Settings:
         coverage_floor_bybit=float(os.getenv("BOOKQ_COVERAGE_FLOOR_BYBIT", "0.80")),
         coverage_floor_okx=float(os.getenv("BOOKQ_COVERAGE_FLOOR_OKX", "0.80")),
         coverage_floor_binance=float(os.getenv("BOOKQ_COVERAGE_FLOOR_BINANCE", "0.80")),
+        coverage_floor_bullish=float(os.getenv("BOOKQ_COVERAGE_FLOOR_BULLISH", "0.80")),
         burst_timeout_s=float(os.getenv("BOOKQ_BURST_TIMEOUT_S", "55")),
         ws_collect_s=float(os.getenv("BOOKQ_WS_COLLECT_S", "30")),
         binance_collect_s=float(os.getenv("BOOKQ_BINANCE_COLLECT_S", "30")),

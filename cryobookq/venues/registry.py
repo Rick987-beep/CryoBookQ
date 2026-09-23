@@ -7,12 +7,13 @@ from collections.abc import Callable
 
 from cryobookq.config import Settings, get_settings
 from cryobookq.venues.binance import BinanceVenue
+from cryobookq.venues.bullish import BullishVenue
 from cryobookq.venues.bybit import BybitVenue
 from cryobookq.venues.coincall import CoincallVenue
 from cryobookq.venues.deribit import DeribitVenue
 from cryobookq.venues.okx import OkxVenue
 
-KNOWN = ("deribit", "coincall", "bybit", "okx", "binance")
+KNOWN = ("deribit", "coincall", "bybit", "okx", "binance", "bullish")
 
 
 def make_venue(name: str, settings: Settings | None = None) -> Any:
@@ -29,6 +30,8 @@ def make_venue(name: str, settings: Settings | None = None) -> Any:
     if key == "binance":
         s = settings or get_settings()
         return BinanceVenue(rest_budget_s=s.binance_rest_budget_s)
+    if key == "bullish":
+        return BullishVenue()
     raise ValueError(f"unknown venue {name!r}")
 
 

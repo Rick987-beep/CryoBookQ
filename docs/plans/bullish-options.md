@@ -112,7 +112,7 @@ Native `BookL5` like every other adapter. WebSocket bids/asks are flat `[price, 
 
 ### Phase 3 — Statistics column beside the other venues
 
-**Status:** not started
+**Status:** done
 
 **Build:** Registry, `KNOWN`, coverage floor env, fee pin, hub/report labels and color, `PREFERRED_VENUES`. Snapshot loop already scores whatever the registry returns; no score formula edits. Docs: `docs/VENUES.md`, README venue count, `.env.example`, `CHANGELOG.md`.
 
@@ -122,14 +122,14 @@ Native `BookL5` like every other adapter. WebSocket bids/asks are flat `[price, 
 
 | Step | Status |
 |------|--------|
-| 1 Read plan | [ ] |
-| 2 Implement | [ ] |
-| 3 Test (+ live if required) | [ ] |
-| 4 Review | [ ] |
-| 5 Document | [ ] |
-| 6 Git (commit + push) | [ ] |
+| 1 Read plan | [x] |
+| 2 Implement | [x] |
+| 3 Test (+ live if required) | [x] |
+| 4 Review | [x] |
+| 5 Document | [x] |
+| 6 Git (commit + push) | [x] |
 
-**Live evidence:** not a live phase
+**Live evidence:** not a live phase. `pytest tests/unit -q` → 124 passed, then scorecard/fees/config/bullish re-run → 37 passed after the review fix. Review: Bullish is not forced onto the scorecard when it was not captured.
 
 ### Phase 4 — Live statistics set
 
