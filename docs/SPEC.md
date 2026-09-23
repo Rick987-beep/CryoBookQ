@@ -29,17 +29,17 @@ isProject: false
 # CryoBookQ — Exchange orderbook quality comparer
 
 > **Repo status:** M0–M5 + P0 + P1 + landmark scorecard + multi-exchange ME0–ME4 (local).  
-> **Next:** **M6** apps deploy with explicit approval. Do not enable five venues on apps until approved.
+> **Next:** **M6** apps deploy with explicit approval. Do not enable every venue on apps until approved. Bullish is opt-in (`--venues`) until a soak.
 
 ## Target state (product)
 
-Continuously compare **Deribit (hub)** vs Coincall, Bybit, Binance, and OKX BTC option
+Continuously compare **Deribit (hub)** vs Coincall, Bybit, Binance, OKX, and Bullish BTC option
 orderbook quality across the **full chain** (Deribit-listed expiries), not landmark strikes.
 
 | Knob | v1 choice |
 |------|-----------|
 | Underlyings | BTC only; venue/collector interface ETH-ready |
-| Venues | Deribit (hub) + Coincall + Bybit + Binance + OKX; `Venue` Protocol + registry |
+| Venues | Deribit (hub) + Coincall + Bybit + Binance + OKX + Bullish; `Venue` Protocol + registry |
 | Cadence | **15 min** UTC (`:00/:15/:30/:45`) |
 | Depth | **Top 5** levels each side |
 | Capture | WS **burst** (not always-on; not full-chain REST L5) |

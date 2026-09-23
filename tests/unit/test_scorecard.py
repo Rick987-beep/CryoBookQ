@@ -405,6 +405,37 @@ def test_catalogue_hub_equals_coverage_extras_liquidity_gated() -> None:
     assert card.catalogue["per_venue"]["bybit"]["n_extras"] == 1
 
 
+def test_bullish_scorecard_beside_deribit() -> None:
+    ts = 1_700_000_000_000
+    key = OptionKey("BTC", ts + 86_400_000, 80_000.0, True)
+    deribit = _book_row(venue="deribit", key=key, delta=0.5, bid=0.02, ask=0.021, bid_sz=1, ask_sz=1)
+    bullish = _book_row(venue="bullish", key=key, delta=0.5, bid=400, ask=480, bid_sz=4.95, ask_sz=4.95)
+    pairs = [MatchedPair(key=key, deribit=deribit, books={"bullish": bullish})]
+    card = build_scorecard(pairs, ts_ms=ts)
+    assert card.venues.index("deribit") < card.venues.index("bullish")
+    assert isinstance(card.overall["bullish"], float)
+    assert isinstance(card.overall["deribit"], float)
+    grid_keys = [k for k in card.grid if k.count(":") == 1 and not k.endswith(":2p5d")]
+    assert len(grid_keys) == 9
+    for key_cell in grid_keys:
+        assert "bullish" in card.grid[key_cell]["venues"]
+        assert "deribit" in card.grid[key_cell]["venues"]
+        assert isinstance(card.grid[key_cell]["venues"]["bullish"]["score"], float)
+    assert len(card.wings) == 3
+    for cell in card.wings.values():
+        assert "bullish" in cell["venues"]
+        assert isinstance(cell["venues"]["bullish"]["score"], float)
+    assert isinstance(card.presence["per_venue"]["bullish"]["score"], float)
+
+
+def test_bullish_absent_when_not_captured() -> None:
+    ts = 1_700_000_000_000
+    key = OptionKey("BTC", ts + 86_400_000, 80_000.0, True)
+    deribit = _book_row(venue="deribit", key=key, delta=0.5, bid=0.02, ask=0.021, bid_sz=1, ask_sz=1)
+    card = build_scorecard([MatchedPair(key=key, deribit=deribit, books={})], ts_ms=ts)
+    assert "bullish" not in card.venues
+
+
 def test_binance_always_on_scorecard_without_rows() -> None:
     ts = 1_700_000_000_000
     key = OptionKey("BTC", ts + 86_400_000, 80_000.0, True)

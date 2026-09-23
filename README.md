@@ -2,7 +2,7 @@
 
 **Compare BTC option orderbook quality across exchanges — on the same contracts, with the same metrics.**
 
-CryoBookQ captures top-of-book depth from five venues every 15 minutes, normalizes prices and sizes to comparable USD/BTC units, and scores how tight and deep each exchange’s displayed liquidity is at standard option landmarks. Deribit is the **listing hub**: landmarks and deltas come from Deribit-listed names; other venues are scored independently on matching contracts.
+CryoBookQ captures top-of-book depth from six venues every 15 minutes, normalizes prices and sizes to comparable USD/BTC units, and scores how tight and deep each exchange’s displayed liquidity is at standard option landmarks. Deribit is the **listing hub**: landmarks and deltas come from Deribit-listed names; other venues are scored independently on matching contracts.
 
 **Live dashboard:** [apps.aureas.xyz/bookq](https://apps.aureas.xyz/bookq)
 
@@ -41,6 +41,7 @@ Period scores use an **equal-weight mean** across snapshots (dashboard default: 
 | **Bybit** | Peer | USDT European options |
 | **OKX** | Peer | BTC-USD inverse; contract multipliers normalized |
 | **Binance** | Peer | USDT eapi; slow sampler (WS + paced REST) |
+| **Bullish** | Peer | USDC European options; public L2 socket. Opt-in until soaked |
 
 Product choices and unit conversion: [docs/VENUES.md](docs/VENUES.md).
 
@@ -53,7 +54,7 @@ flowchart LR
   subgraph capture [15-min UTC snapshot]
     D[Deribit WS burst]
     C[Coincall WS burst]
-    B[Bybit / OKX WS burst]
+    B[Bybit / OKX / Bullish WS burst]
     N[Binance slow sampler]
   end
   subgraph pipe [Per snapshot]
@@ -102,11 +103,11 @@ cp .env.example .env   # optional: COINCALL_* for Coincall capture
 pytest tests/unit -v
 ```
 
-### One snapshot (all five venues)
+### One snapshot (all six venues)
 
 ```bash
 python -m cryobookq.daemon --once \
-  --venues deribit,coincall,bybit,okx,binance \
+  --venues deribit,coincall,bybit,okx,binance,bullish \
   --duration 30
 ```
 
@@ -199,7 +200,7 @@ Ops runbook: [docs/OPS.md](docs/OPS.md). **Do not deploy or wipe production `dat
 
 ## Project status
 
-Core pipeline (M0–M5) and multi-exchange venues (ME0–ME4) are implemented. The public dashboard and five-venue capture run on apps.aureas.xyz. CryoBookQ is **research tooling** — figures describe displayed liquidity at capture time, not guaranteed fill quality under stress.
+Core pipeline (M0–M5) and multi-exchange venues (ME0–ME4) are implemented. The public dashboard runs on apps.aureas.xyz. Bullish is in the comparer and stays off that host until a soak. CryoBookQ is **research tooling** — figures describe displayed liquidity at capture time, not guaranteed fill quality under stress.
 
 ---
 

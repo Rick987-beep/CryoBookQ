@@ -65,6 +65,13 @@ STANDARD_TIER: dict[str, StandardOptionsFee] = {
         as_of="2026-09",
         source="Binance USDT-M options retail: 0.03% of underlying, 10% of premium cap.",
     ),
+    "bullish": StandardOptionsFee(
+        venue="bullish",
+        taker_rate=0.0003,
+        premium_cap=0.10,
+        as_of="2026-09",
+        source="https://support.exchange.bullish.com/wiki/spaces/BHC/pages/9373547/Understanding+fees — individual CLOB options 3 bps of notional, 10% of premium.",
+    ),
 }
 
 

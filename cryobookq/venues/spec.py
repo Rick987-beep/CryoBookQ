@@ -29,6 +29,7 @@ SPECS: dict[str, VenueSpec] = {
     "bybit": VenueSpec("bybit", "USD", 1.0),
     "binance": VenueSpec("binance", "USD", 1.0),
     "okx": VenueSpec("okx", "BTC", 0.01),
+    "bullish": VenueSpec("bullish", "USD", 1.0),
 }
 
 

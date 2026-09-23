@@ -8,6 +8,7 @@ VENUE_LABELS = {
     "bybit": "Bybit",
     "okx": "OKX",
     "binance": "Binance",
+    "bullish": "Bullish",
 }
 
 # Left-border accents on overall cards (CSS `data-venue`).
@@ -17,6 +18,7 @@ VENUE_COLORS = {
     "bybit": "#f7a600",
     "okx": "#000000",
     "binance": "#f0b90b",
+    "bullish": "#16a34a",
 }
 
 TENOR_LABELS = {

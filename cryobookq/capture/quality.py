@@ -13,6 +13,7 @@ DEFAULT_FLOORS = {
     "bybit": 0.80,
     "okx": 0.80,
     "binance": 0.80,
+    "bullish": 0.80,
 }
 
 

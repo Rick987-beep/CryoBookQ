@@ -91,7 +91,7 @@ OVERALL_WEIGHTS = {
 }
 
 HUB_VENUE = "deribit"
-PREFERRED_VENUES = ["deribit", "coincall", "bybit", "okx", "binance"]
+PREFERRED_VENUES = ["deribit", "coincall", "bybit", "okx", "binance", "bullish"]
 ALWAYS_SCORE_VENUES = frozenset({"binance"})
 
 # Catalogue (separate from Overall). Hub coverage is a count, not a rate.
