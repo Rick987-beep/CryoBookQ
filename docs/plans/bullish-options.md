@@ -91,7 +91,7 @@ Native `BookL5` like every other adapter. WebSocket bids/asks are flat `[price, 
 
 ### Phase 2 — Full-chain book read
 
-**Status:** not started
+**Status:** done
 
 **Build:** `cryobookq/venues/bullish.py`. `list_instruments` from `GET /trading-api/v1/markets?marketType=OPTION`, client-filtered to enabled BTC options. `burst_books` subscribes `l2Orderbook` for every symbol on one socket, replaces on snapshot, pads to L5, stamps `publishedAtTimestamp`. Register nothing yet (phase 3). Unit-test the message parser with captured frames, including an empty snapshot that clears a previous book.
 
@@ -101,14 +101,14 @@ Native `BookL5` like every other adapter. WebSocket bids/asks are flat `[price, 
 
 | Step | Status |
 |------|--------|
-| 1 Read plan | [ ] |
-| 2 Implement | [ ] |
-| 3 Test (+ live if required) | [ ] |
-| 4 Review | [ ] |
-| 5 Document | [ ] |
-| 6 Git (commit + push) | [ ] |
+| 1 Read plan | [x] |
+| 2 Implement | [x] |
+| 3 Test (+ live if required) | [x] |
+| 4 Review | [x] |
+| 5 Document | [x] |
+| 6 Git (commit + push) | [x] |
 
-**Live evidence:**
+**Live evidence:** `pytest tests/live/test_bullish_burst.py -m live -o addopts= -v` PASSED in 32.43s against `https://api.exchange.bullish.com/trading-api` (markets list + `wss://.../market-data/orderbook` `l2Orderbook`). Asserted ≥1000 BTC options, ETH list empty, coverage ≥ 0.90, collect window 30s (elapsed ≤ 40s), two-sided book, 10 USDC tick, `publishedAtTimestamp` within 5 minutes. Unit: 7 passed. Review fix: ignore an `update` that arrives before the first snapshot.
 
 ### Phase 3 — Statistics column beside the other venues
 
