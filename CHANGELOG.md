@@ -9,9 +9,11 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Added
 
-- **Bullish** — public BTC-USDC options on the same scorecard as the other venues.
+- **Bullish** — public BTC-USDC options on the same hub scorecard as the other venues.
   One L2 socket reads the full chain. Premium is USDC (scored as USD); size is BTC.
-  Opt-in with `--venues …,bullish` until a soak clears the 80% coverage floor.
+  The apps daemon runs it beside Deribit, Coincall, Bybit, OKX, and Binance.
+- **Condor legs** — the four contracts are chosen only when every compared venue
+  has a two-sided book, so Bybit and OKX are not dropped for a Deribit-only strike.
 - **Hub glance strip** — two cards above Overall ranking: average top-of-book
   spread % (3×3 landmark grid) and **The flight of the condor** (what remains of
   a short iron condor’s mid after open+close spread and standard-tier taker fees).

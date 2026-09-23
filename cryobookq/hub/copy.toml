@@ -4,7 +4,7 @@
 title = "CryoBookQ"
 
 [intro]
-text = """Side-by-side quality scores for BTC option order books on Deribit, Bybit, OKX, Binance, and Coincall — spread, $10k premium lift, and L5 depth at standard landmarks. Figures are a rolling mean of the last four 15-minute snapshots; they describe displayed liquidity, not guaranteed fill quality under stress."""
+text = """Side-by-side quality scores for BTC option order books on Deribit, Bybit, OKX, Binance, Coincall, and Bullish — spread, $10k premium lift, and L5 depth at standard landmarks. Figures are a rolling mean of the last four 15-minute snapshots; they describe displayed liquidity, not guaranteed fill quality under stress."""
 
 [sections]
 venues = "Weighted 0–10 index per exchange: 60% grid + 20% wings + 20% presence · mean of last {n_snapshots} snapshots."
@@ -20,7 +20,7 @@ avg_title = "Avg spread"
 avg_line1 = "Mean relative spread across the 3×3 landmark grid, calls and puts averaged."
 avg_line2 = "Top of book: (ask − bid) divided by mid."
 condor_title = "The flight of the condor"
-condor_line1 = "Short iron condor: about 30 days to expiry, sell ±40 delta, buy ±25 delta. 100% is the structure mid before you trade."
+condor_line1 = "Nearest expiry to 30 days where every exchange is two-sided. Sell the call and put nearest 40 delta; buy a further wing nearest 25 delta. Same four contracts everywhere. 100% is the structure mid before you trade."
 condor_line2 = "What remains after opening and closing — top-of-book spread plus standard-tier taker fees on all eight fills."
 
 [footer]
